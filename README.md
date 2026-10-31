@@ -2,6 +2,14 @@
 
 Abra `Jogar.cmd` para jogar ou `Abrir editor.cmd` para editar no Godot. O protótipo é testado no computador; a versão móvel ainda não foi exportada.
 
+## Dragon e Baron
+
+Dragon aparece aos 20 e 45 segundos, disputado por jungler, atirador e suporte. Se ainda estiver vivo no segundo horário, não nasce uma cópia. Baron aparece aos 65 segundos e reúne os cinco personagens vivos de cada equipe, com prioridade sobre Dragon. Os personagens percorrem os caminhos do mapa e atacam adversários próximos antes do monstro; depois retornam às rotas ou à selva.
+
+Dragon tem 300 de vida e concede +8% de dano por conquista, até +16% durante a partida. Baron tem 600 de vida e concede +30% de dano contra torres e nexo por 20 segundos. Os monstros não revidam. O dano é aplicado simultaneamente; conquista o time que causar mais dano no último passo da simulação, com sorteio em empate. Bônus valem para todo o time, sobrevivem ao renascimento e são zerados na próxima partida. Não há pontos extras diretos na decisão do vencedor.
+
+Os objetivos aparecem com identificação e vida no mapa, e o painel informa nascimentos, conquistas e bônus ativos. Valores iniciais de balanceamento.
+
 ## Mapa integrado — v0.8
 
 Mapa aprovado integrado, com percursos ligados às passagens da imagem e sorteio de uma das três rotas após cada limpeza de seis campos. Consulte docs/MAPA-v08.md. O modo de teste continua ativo.
@@ -52,7 +60,7 @@ Testes em `game/tests/`: progressão, economia/elos/migração, fluxo da interfa
 
 ## APK para teste Android
 
-O arquivo `builds/Nexo-Idle-teste.apk` é uma versão de depuração para testes, compatível com Android 7.0 (API 24) ou superior em dispositivos ARM. Transfira-o ao celular, abra-o e autorize a instalação de aplicativos dessa origem se o Android solicitar. Não é uma versão para publicação na Play Store. O progresso do celular é separado do progresso no computador. Não foi possível testar a instalação ou a interface em aparelho físico, pois nenhum dispositivo estava conectado. Os resultados e o roteiro de teste estão em `docs/TESTE-ANDROID.md`.
+O arquivo `builds/Nexo-Idle-0.9.apk` é uma versão de depuração com Dragon, Baron e a tela de melhorias abaixo do mapa, compatível com Android 7.0 (API 24) ou superior em dispositivos ARM de 32 e 64 bits. Exportado com Godot 4.6.3, disponível neste ambiente, com assinatura verificada. Esta versão abre no modo de teste com XP ilimitado e sem salvar progresso. Transfira-o ao celular, abra-o e autorize a instalação de aplicativos dessa origem se o Android solicitar. Não é uma versão para publicação na Play Store. O progresso do celular é separado do progresso no computador. Não foi possível testar a instalação ou a interface em aparelho físico, pois nenhum dispositivo estava conectado. Os resultados e o roteiro de teste estão em `docs/TESTE-ANDROID.md`.
 
 
 

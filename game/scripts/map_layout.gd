@@ -66,3 +66,10 @@ static func route(from: Vector2, to: Vector2) -> PackedVector2Array:
 		return result
 	result.append(to)
 	return result
+
+
+static func objective_position(key: String) -> Vector2:
+	prepare()
+	# Accessible river approaches beside the upper and lower pits.
+	var anchor: Vector2 = Vector2(0.38, 0.32) if key == "baron" else Vector2(0.67, 0.54)
+	return graph.get_point_position(graph.get_closest_point(anchor))
