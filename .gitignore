@@ -1,0 +1,11 @@
+.tools/
+.godot/
+game/.godot/
+game/tests/tmp_*
+artifacts/
+builds/
+*.keystore
+*.jks
+.env
+.env.*
+__pycache__/
