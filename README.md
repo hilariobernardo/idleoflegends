@@ -2,6 +2,12 @@
 
 Abra `Jogar.cmd` para jogar ou `Abrir editor.cmd` para editar no Godot. O protótipo é testado no computador; a versão móvel ainda não foi exportada.
 
+## Alterações recentes
+
+- Registrada a orientação para documentar as próximas alterações neste histórico.
+- Dragon e Baron foram reposicionados nos covis inferior e superior do rio. Os jogadores receberam posições individuais ao redor dos objetivos, com barras de vida ajustadas ao tamanho do mapa.
+- O modo de teste passou a iniciar em 2×, com botão para alternar entre 1× e 2× durante as partidas.
+
 ## Dragon e Baron
 
 Baron fica no covil superior do rio e Dragon no covil inferior, afastados do mid. Cada personagem tem uma posição própria ao redor do objetivo, com espaço para sua barra de vida; mortes não reorganizam as posições dos sobreviventes. Os trajetos incluem as entradas do rio e dos covis.
