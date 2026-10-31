@@ -4,6 +4,7 @@ Abra `Jogar.cmd` para jogar ou `Abrir editor.cmd` para editar no Godot. O protó
 
 ## Alterações recentes
 
+- O histórico de alterações também passou a ser mantido no AGENTS.md para orientar os próximos agentes.
 - Registrada a orientação para documentar as próximas alterações neste histórico.
 - Dragon e Baron foram reposicionados nos covis inferior e superior do rio. Os jogadores receberam posições individuais ao redor dos objetivos, com barras de vida ajustadas ao tamanho do mapa.
 - O modo de teste passou a iniciar em 2×, com botão para alternar entre 1× e 2× durante as partidas.
