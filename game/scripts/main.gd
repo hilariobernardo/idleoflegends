@@ -15,6 +15,7 @@ var progress: RefCounted = Progression.new()
 var simulation: RefCounted = Simulation.new()
 var active: bool = false
 var paused: bool = false
+var match_speed: float = 1.0
 var auto_play: bool = false
 var restart_remaining: float = -1.0
 var test_save_path: String = ""
@@ -64,6 +65,7 @@ func _ready() -> void:
 	else:
 		progress.practice_mode = true
 	progress.load_save()
+	match_speed = 2.0 if progress.practice_mode else 1.0
 	simulation.start(progress.upgrades, 0, progress.opponent_level(), _mode_name())
 	_build_ui()
 	_refresh_progress()
@@ -255,9 +257,9 @@ func _build_match_page(page: VBoxContainer) -> void:
 	pause_button.disabled = true
 	pause_button.pressed.connect(_toggle_pause)
 	controls.add_child(pause_button)
-	speed_button = _button("1×", false)
-	speed_button.disabled = true
-	speed_button.tooltip_text = "Velocidade padrão de movimento. O relógio segue em tempo normal."
+	speed_button = _button("%d×" % int(match_speed), false)
+	speed_button.pressed.connect(_toggle_speed)
+	speed_button.tooltip_text = "Alternar entre 1× e 2× para toda a partida."
 	speed_button.custom_minimum_size.x = 55
 	controls.add_child(speed_button)
 	auto_button = CheckButton.new()
@@ -382,12 +384,12 @@ func _process(delta: float) -> void:
 		progress.settle_training()
 		_refresh_progress()
 	if active and not paused:
-		simulation.advance(minf(delta, 0.25))
+		simulation.advance(minf(delta, 0.25) * match_speed)
 		_refresh_match()
 		if simulation.finished:
 			_finish_match()
 	elif restart_remaining >= 0 and auto_play:
-		restart_remaining -= delta
+		restart_remaining -= delta * match_speed
 		if restart_remaining <= 0:
 			_start_match()
 
@@ -495,6 +497,8 @@ func _reset_test_session() -> void:
 	if not progress.practice_mode:
 		return
 	progress.load_save()
+	match_speed = 2.0
+	speed_button.text = "2×"
 	active = false
 	paused = false
 	auto_play = false
@@ -554,6 +558,10 @@ func _toggle_pause() -> void:
 	paused = not paused
 	pause_button.text = "Continuar" if paused else "Pausar"
 	status_label.text = "Partida pausada." if paused else "Seu time está na arena."
+
+func _toggle_speed() -> void:
+	match_speed = 2.0 if match_speed == 1.0 else 1.0
+	speed_button.text = "%d×" % int(match_speed)
 
 func _set_auto_play(enabled: bool) -> void:
 	auto_play = enabled

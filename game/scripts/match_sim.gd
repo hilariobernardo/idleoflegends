@@ -22,7 +22,8 @@ var baron_until: Array[float] = [0.0, 0.0]
 var objective_message: String = "Dragon: 00:20 e 00:45 · Baron: 01:05"
 var _spawn_index: int = 0
 const OBJECTIVE_SCHEDULE: Array[float] = [20.0, 45.0, 65.0]
-const OBJECTIVE_RANGE: float = 0.055
+# Covers the separated attack positions around each river pit.
+const OBJECTIVE_RANGE: float = 0.13
 var elapsed: float = 0.0
 var duration: float = 90.0
 var finished: bool = false
@@ -453,7 +454,7 @@ func _update_objective_movement(unit: Dictionary) -> void:
 			unit.objective = desired
 			unit.returning = false
 			unit.lane = -1
-			_set_route(unit, objectives[desired].position)
+			_set_route(unit, Map.objective_attack_position(desired, int(unit.id)))
 		else:
 			unit.objective = ""
 			if int(unit.slot) == 1:

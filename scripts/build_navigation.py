@@ -77,6 +77,51 @@ for team in range(2):
         for lane in lanes:
             closest=min(lane,key=lambda p:math.dist(p,c))
             paths.append(astar(c,closest))
+# Add the river and pit floors only after generating the original lane/camp
+# paths. Blue water is walkable; rock silhouettes and foliage remain blocked.
+river_region=Image.new('L', (w,h))
+ImageDraw.Draw(river_region).polygon([(230,210),(560,225),(635,450),(720,560),
+    (1085,730),(1110,915),(820,930),(775,765),(590,640),(330,480)],fill=255)
+water=(b>r*1.1)&(g>r*1.08)&(g>65)&(np.asarray(river_region)>0)
+river_floor=Image.fromarray((((np.asarray(ground_image)>0) | water)*255).astype('uint8'))
+river_floor=river_floor.filter(ImageFilter.MaxFilter(9)).filter(ImageFilter.MinFilter(9)).filter(ImageFilter.MinFilter(7))
+walk |= (np.asarray(river_floor)>0)[::step,::step] & (np.asarray(river_region)>0)[::step,::step]
+# Keep only floor reachable from the existing lanes, including shallow shores.
+reachable=set(); stack=[B[0]]
+while stack:
+    p=stack.pop()
+    if p in reachable: continue
+    reachable.add(p)
+    for dx,dy in dirs[:4]:
+        q=(p[0]+dx,p[1]+dy)
+        if 0<=q[0]<W and 0<=q[1]<H and walk[q[1],q[0]] and q not in reachable:
+            stack.append(q)
+walk[:]=False
+for x,y in reachable: walk[y,x]=True
+
+objectives={}
+for key,anchor in [('baron',(495,285)),('dragon',(890,855))]:
+    center=snap(anchor)
+    # Every role keeps its own destination even when another participant dies.
+    # Choose actual floor around the pit, with room for individual health bars.
+    candidates=[p for p in sorted(reachable) if 80<=math.dist(p,center)*step<=155]
+    positions=[]
+    for team in range(2):
+        for slot in range(5):
+            angle=math.radians(110+slot*32+team*180)
+            ideal=(center[0]+23*math.cos(angle),center[1]+23*math.sin(angle))
+            available=[p for p in candidates if all(math.dist(p,q)*step>=60 for q in positions)]
+            if not available: raise ValueError(f'No separated objective slot: {key} {team} {slot}')
+            point=min(available,key=lambda p:(math.dist(p,ideal),p))
+            positions.append(point)
+            paths.append(astar(center,point))
+            # Approach each role's spot directly instead of funneling the whole
+            # team through the monster's center before spreading out.
+            for lane in lanes:
+                paths.append(astar(point,min(lane,key=lambda p:math.dist(p,point))))
+    for lane in lanes:
+        paths.append(astar(center,min(lane,key=lambda p:math.dist(p,center))))
+    objectives[key]={'center':center,'positions':positions}
 ids={};nodes=[];edges=set()
 def ident(p):
     if p not in ids:ids[p]=len(nodes);nodes.append([p[0]*step/w,p[1]*step/h])
@@ -84,6 +129,8 @@ def ident(p):
 for path in paths:
     for a,b in zip(path,path[1:]): edges.add(tuple(sorted((ident(a),ident(b)))))
 data={'source_size':[w,h],'clearance_pixels':5,'nodes':nodes,'edges':sorted(edges),'lanes':[[ident(p) for p in lane] for lane in lanes],'camps':[[ident(p) for p in team] for team in C],'bases':[ident(p) for p in B]}
+data['objectives']={key:{'center':ident(value['center']),
+    'positions':[ident(p) for p in value['positions']]} for key,value in objectives.items()}
 Path('game/assets/arena_navigation.json').write_text(json.dumps(data,separators=(',',':')))
 print('Navigation:',len(nodes),'nodes',len(edges),'edges')
 

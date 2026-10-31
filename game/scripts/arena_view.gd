@@ -61,10 +61,18 @@ func _draw() -> void:
 			continue
 		var p: Vector2 = _point(unit.position)
 		var color: Color = BLUE if int(unit.team) == 0 else RED
-		draw_circle(p + Vector2(0,1), 5.5, Color(0,0,0,.4))
-		draw_circle(p, 4.5, color)
-		draw_circle(p-Vector2(1,1), 1, Color(1,1,1,.6))
-		_health(p+Vector2(0,-8),float(unit.hp)/float(unit.max_hp),color,19)
+		var radius: float = clampf(side * 0.011, 2.0, 4.5)
+		draw_circle(p + Vector2(0,1), radius + 1.0, Color(0,0,0,.4))
+		draw_circle(p, radius, color)
+		draw_circle(p-Vector2(0.7,0.7), 0.7, Color(1,1,1,.6))
+	# Draw health above all players, with bars sized to the map so adjacent
+	# formation slots remain readable even in the compact mobile arena.
+	for unit: Dictionary in simulation.units:
+		if not bool(unit.alive):
+			continue
+		var color: Color = BLUE if int(unit.team) == 0 else RED
+		var offset: float = clampf(side * 0.02, 5.0, 8.0)
+		_health(_point(unit.position)+Vector2(0,-offset),float(unit.hp)/float(unit.max_hp),color,minf(19.0,side*0.04))
 
 func _health(p: Vector2, amount: float, color: Color, width: float) -> void:
 	draw_line(p-Vector2(width/2,0),p+Vector2(width/2,0),Color("07121c"),3)
@@ -81,7 +89,10 @@ func _box(fill: Color, border: Color, radius: int) -> StyleBoxFlat:
 
 
 func _draw_objective(key: String, objective: Dictionary) -> void:
-	var p: Vector2 = _point(objective.position)
+	var side: float = minf(size.x - 18, size.y - 12)
+	var marker_scale: float = minf(1.0, side / 400.0)
+	draw_set_transform(_point(objective.position), 0.0, Vector2.ONE * marker_scale)
+	var p: Vector2 = Vector2.ZERO
 	var color: Color = Color("c99aff") if key == "baron" else Color("f1c779")
 	draw_circle(p, 17, Color("101a29"))
 	draw_arc(p, 18, 0, TAU, 32, color, 2.0, true)
@@ -99,3 +110,4 @@ func _draw_objective(key: String, objective: Dictionary) -> void:
 	var label_width: float = font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
 	draw_string(font, p+Vector2(-label_width * 0.5, -22), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, color)
 	_health(p+Vector2(0,22), float(objective.hp) / float(objective.max_hp), color, 36)
+	draw_set_transform(Vector2.ZERO)

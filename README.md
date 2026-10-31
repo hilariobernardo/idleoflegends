@@ -4,6 +4,10 @@ Abra `Jogar.cmd` para jogar ou `Abrir editor.cmd` para editar no Godot. O protó
 
 ## Dragon e Baron
 
+Baron fica no covil superior do rio e Dragon no covil inferior, afastados do mid. Cada personagem tem uma posição própria ao redor do objetivo, com espaço para sua barra de vida; mortes não reorganizam as posições dos sobreviventes. Os trajetos incluem as entradas do rio e dos covis.
+
+O modo de teste começa em **2×**. O botão **1× / 2×** alterna a velocidade da partida inteira: movimento, ataques, renascimento, objetivos e relógio. A seleção permanece nas próximas partidas; RECOMEÇAR TESTE volta a 2×.
+
 Dragon aparece aos 20 e 45 segundos, disputado por jungler, atirador e suporte. Se ainda estiver vivo no segundo horário, não nasce uma cópia. Baron aparece aos 65 segundos e reúne os cinco personagens vivos de cada equipe, com prioridade sobre Dragon. Os personagens percorrem os caminhos do mapa e atacam adversários próximos antes do monstro; depois retornam às rotas ou à selva.
 
 Dragon tem 300 de vida e concede +8% de dano por conquista, até +16% durante a partida. Baron tem 600 de vida e concede +30% de dano contra torres e nexo por 20 segundos. Os monstros não revidam. O dano é aplicado simultaneamente; conquista o time que causar mais dano no último passo da simulação, com sorteio em empate. Bônus valem para todo o time, sobrevivem ao renascimento e são zerados na próxima partida. Não há pontos extras diretos na decisão do vencedor.
