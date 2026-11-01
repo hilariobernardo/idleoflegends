@@ -30,7 +30,9 @@ func _run() -> void:
 		await process_frame
 	_mouse_button(start - Vector2(0, 160), false)
 	await _frames()
-	_check(app.scroll.scroll_vertical > 50, "Dragging on a button scrolls content")
+	var scrollbar: VScrollBar = app.scroll.get_v_scroll_bar()
+	var available_scroll: int = int(scrollbar.max_value - scrollbar.page)
+	_check(app.scroll.scroll_vertical > 0 and app.scroll.scroll_vertical >= mini(50, available_scroll), "Dragging on a button scrolls available content")
 	_check(not app.mode_chosen, "Dragging must not click Normal")
 	app.scroll.scroll_vertical = 0
 	await _frames()
@@ -43,13 +45,18 @@ func _run() -> void:
 		root.size = dimensions
 		await _frames()
 		_check(app.size.is_equal_approx(root.get_visible_rect().size), "Root fills viewport %s" % dimensions)
-		_check(app.scroll.size.is_equal_approx(app.size), "Scroll fills viewport %s" % dimensions)
 		for page: String in ["MODOS", "PARTIDA", "EVOLUÇÃO", "CARTAS"]:
 			app._show_page(page)
 			await _frames()
 			_check(app.pages[page].visible and app.current_page == page, "Correct page is visible: " + page)
+			if page == "PARTIDA":
+				_check(app.skills_scroll.get_global_rect().end.y <= app.size.y + 1, "Match upgrade panel fits viewport %s" % dimensions)
+				_check(not app.scroll.visible and app.pages["EVOLUÇÃO"].is_visible_in_tree(), "Both upgrade groups appear below the match")
+				_check(app.arena.get_global_rect().end.y <= app.skills_scroll.get_global_rect().position.y, "Map stays above upgrade scrolling")
+			else:
+				_check(app.scroll.get_global_rect().end.y <= app.size.y + 1, "Page scroll fits viewport")
 			for child: Node in app.scroll.get_children():
-				if child is MarginContainer:
+				if child is VBoxContainer:
 					_check(child.size.x <= app.scroll.size.x + 1, "Content fits width: %s %s" % [page, dimensions])
 			for button: Node in app.find_children("*", "Button", true, false):
 				if button.is_visible_in_tree():
@@ -91,12 +98,16 @@ func _run() -> void:
 	app._start_match()
 	var equipped_skills: Dictionary = app.progress.combat_upgrades()
 	_check(app.active and app.simulation._upgrades == equipped_skills, "Match starts with equipped bonuses")
+	_check(app.simulation.objectives.has("dragon") and app.simulation.objectives.has("baron"), "Dragon and Baron remain available")
+	app._toggle_speed()
+	_check(app.match_speed == 2.0 and app.speed_button.text == "2×", "Speed toggle remains functional")
 	app.card_buttons[id].pressed.emit()
 	_check(app.simulation._upgrades == equipped_skills and app.progress.equipped_cards.is_empty(), "Removing a card does not alter an ongoing match")
 	app.progress.practice_mode = true
 	app._reset_test_session()
 	_check(not app.active and app.current_page == "MODOS" and not app.card_result.visible, "Reset cancels match, hides reveal and returns to modes")
 	_check(app.progress.collection.is_empty() and app.progress.idle_points == 300 and app.ip_label.text == "300 IP", "Reset restores starter IP and clears collection")
+	_check(app.match_speed == 2.0, "Practice reset preserves the 2x default")
 	app.queue_free()
 	await process_frame
 	DirAccess.remove_absolute(ProjectSettings.globalize_path("res://tests/tmp_mobile.json"))

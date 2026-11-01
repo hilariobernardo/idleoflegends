@@ -1,5 +1,7 @@
 # Cartas e evolução — v0.9
 
+Na entrega v0.10, estas regras foram integradas às mudanças do branch `work`: Dragon/Baron e velocidade 2× foram preservados, e os dois grupos de evolução também aparecem no painel com rolagem abaixo do mapa. O download atualizado está no README.
+
 A navegação agora tem Partida, Evolução, Cartas e Modos. Evolução reúne dois grupos: habilidades de combate e estudos que produzem XP. Cada grupo usa uma grade de dois blocos por fileira, com rolagem vertical comum, nível, efeito e compra no próprio bloco.
 
 ## Idle Points (IP)

@@ -17,6 +17,7 @@ var progress: RefCounted = Progression.new()
 var simulation: RefCounted = Simulation.new()
 var active: bool = false
 var paused: bool = false
+var match_speed: float = 1.0
 var auto_play: bool = false
 var restart_remaining: float = -1.0
 var test_save_path: String = ""
@@ -28,6 +29,7 @@ var clock_label: Label
 var gold_label: Label
 var status_label: Label
 var detail_label: Label
+var objective_label: Label
 var event_label: Label
 var warning_label: Label
 var match_bar: ProgressBar
@@ -55,6 +57,8 @@ var match_title: Label
 var training_timer: float = 0.0
 var match_mode: String = "normal"
 var scroll: ScrollContainer
+var skills_scroll: ScrollContainer
+var secondary_header: Array[Control] = []
 var mode_chosen: bool = false
 var ip_label: Label
 var card_wallet: Label
@@ -75,6 +79,7 @@ func _ready() -> void:
 	else:
 		progress.practice_mode = true
 	progress.load_save()
+	match_speed = 2.0 if progress.practice_mode else 1.0
 	simulation.start(progress.combat_upgrades(), 0, progress.opponent_level(), _mode_name())
 	_build_ui()
 	_refresh_progress()
@@ -87,26 +92,22 @@ func _build_ui() -> void:
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(background)
-	scroll = ScrollContainer.new()
-	scroll.scroll_deadzone = 10
-	scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	add_child(scroll)
 	var margin: MarginContainer = MarginContainer.new()
-	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	for side: String in ["left","right","top","bottom"]:
 		margin.add_theme_constant_override("margin_" + side, 24)
-	scroll.add_child(margin)
+	add_child(margin)
 	var column: VBoxContainer = _column(16)
 	margin.add_child(column)
 	var masthead: HBoxContainer = HBoxContainer.new()
 	column.add_child(masthead)
+	secondary_header.append(masthead)
 	var brand: VBoxContainer = _column(0)
 	brand.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	masthead.add_child(brand)
 	brand.add_child(_label("N E X O", 30, INK))
 	brand.add_child(_label("I D L E   A R E N A", 10, MINT))
-	var badge: Label = _label("TESTE  0.9" if progress.practice_mode else "PRÉVIA  0.9", 11, MUTED)
+	var badge: Label = _label("TESTE  0.10" if progress.practice_mode else "PRÉVIA  0.10", 11, MUTED)
 	badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	masthead.add_child(badge)
 	var wallet: PanelContainer = _panel(Color("142433"))
@@ -135,9 +136,11 @@ func _build_ui() -> void:
 		var test_note: Label = _label("Modo de teste · XP ilimitado · progresso não é salvo", 12, GOLD)
 		test_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		column.add_child(test_note)
+		secondary_header.append(test_note)
 		var reset: Button = _button("RECOMEÇAR TESTE", false)
 		reset.pressed.connect(_reset_test_session)
 		column.add_child(reset)
+		secondary_header.append(reset)
 	training_notice = _label("", 13, MINT)
 	training_notice.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(training_notice)
@@ -154,10 +157,20 @@ func _build_ui() -> void:
 		button.pressed.connect(_show_page.bind(title))
 		nav.add_child(button)
 		nav_buttons[title] = button
+	scroll = ScrollContainer.new()
+	scroll.scroll_deadzone = 10
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	column.add_child(scroll)
+	var page_column: VBoxContainer = _column(12)
+	page_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(page_column)
 	for title: String in ["PARTIDA", "EVOLUÇÃO", "CARTAS", "MODOS"]:
 		var page: VBoxContainer = _column(12)
-		column.add_child(page)
+		page_column.add_child(page)
 		pages[title] = page
+	pages.PARTIDA.reparent(column)
+	pages.PARTIDA.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_build_match_page(pages.PARTIDA)
 	_build_skills_page(pages["EVOLUÇÃO"])
 	pages["EVOLUÇÃO"].add_child(HSeparator.new())
@@ -169,7 +182,7 @@ func _build_ui() -> void:
 	column.add_child(warning_label)
 	var footer: Label = _label("Observe. Aprenda. Evolua.", 12, MUTED)
 	footer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	column.add_child(footer)
+	page_column.add_child(footer)
 	_allow_scroll_gestures(margin)
 	_show_page("MODOS")
 
@@ -191,7 +204,6 @@ func _build_match_page(page: VBoxContainer) -> void:
 	tag.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	title_row.add_child(tag)
 	var rank_card: PanelContainer = _panel(Color("142433"), 12)
-	page.add_child(rank_card)
 	var rank_stack: VBoxContainer = _column(5)
 	rank_card.add_child(rank_stack)
 	rank_label = _label("", 18, GOLD)
@@ -206,6 +218,8 @@ func _build_match_page(page: VBoxContainer) -> void:
 	rank_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	rank_stack.add_child(rank_detail)
 	var board: PanelContainer = _panel(Color("0e1b29"), 12)
+	board.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	board.size_flags_stretch_ratio = 1.2
 	page.add_child(board)
 	var content: VBoxContainer = _column(7)
 	board.add_child(content)
@@ -224,6 +238,9 @@ func _build_match_page(page: VBoxContainer) -> void:
 	clock_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	content.add_child(clock_label)
 	arena = Arena.new()
+	arena.fit_to_width = false
+	arena.custom_minimum_size.y = 160
+	arena.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	arena.simulation = simulation
 	content.add_child(arena)
 	gold_label = _label("OURO  0  ×  0", 11, GOLD)
@@ -235,6 +252,9 @@ func _build_match_page(page: VBoxContainer) -> void:
 	match_bar.add_theme_stylebox_override("background", _style(Color("263746"), 2))
 	match_bar.add_theme_stylebox_override("fill", _style(MINT, 2))
 	content.add_child(match_bar)
+	objective_label = _label("", 10, GOLD)
+	objective_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content.add_child(objective_label)
 	event_label = _label("Três rotas. Dez jogadores. Um nexo para conquistar.", 11, MUTED)
 	event_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	event_label.custom_minimum_size.y = 32
@@ -256,9 +276,9 @@ func _build_match_page(page: VBoxContainer) -> void:
 	pause_button.disabled = true
 	pause_button.pressed.connect(_toggle_pause)
 	controls.add_child(pause_button)
-	speed_button = _button("1×", false)
-	speed_button.disabled = true
-	speed_button.tooltip_text = "Velocidade padrão de movimento. O relógio segue em tempo normal."
+	speed_button = _button("%d×" % int(match_speed), false)
+	speed_button.pressed.connect(_toggle_speed)
+	speed_button.tooltip_text = "Alternar entre 1× e 2× para toda a partida."
 	speed_button.custom_minimum_size.x = 55
 	controls.add_child(speed_button)
 	auto_button = CheckButton.new()
@@ -268,9 +288,23 @@ func _build_match_page(page: VBoxContainer) -> void:
 	auto_button.add_theme_color_override("font_color", MUTED)
 	auto_button.toggled.connect(_set_auto_play)
 	controls.add_child(auto_button)
-	# Keep the primary action visible above the map on a phone-sized viewport.
-	page.move_child(start_button, 2)
-	page.move_child(controls, 3)
+	# Match controls and map stay fixed; only the improvements below them scroll.
+	page.move_child(start_button, 1)
+	page.move_child(controls, 2)
+	skills_scroll = ScrollContainer.new()
+	skills_scroll.scroll_deadzone = 10
+	skills_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	skills_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	skills_scroll.custom_minimum_size.y = 180
+	page.add_child(skills_scroll)
+	var improvements: VBoxContainer = _column(12)
+	improvements.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	skills_scroll.add_child(improvements)
+	# Reuse the same skill cards in the match and in the Improvements tab.
+	status_label.reparent(improvements)
+	detail_label.reparent(improvements)
+	pages["EVOLUÇÃO"].reparent(improvements)
+	improvements.add_child(rank_card)
 
 func _build_skills_page(page: VBoxContainer) -> void:
 	page.add_child(_label("HABILIDADES  /  VENÇA NA ARENA", 18, MINT))
@@ -514,12 +548,12 @@ func _process(delta: float) -> void:
 		progress.settle_training()
 		_refresh_progress()
 	if active and not paused:
-		simulation.advance(minf(delta, 0.25))
+		simulation.advance(minf(delta, 0.25) * match_speed)
 		_refresh_match()
 		if simulation.finished:
 			_finish_match()
 	elif restart_remaining >= 0 and auto_play:
-		restart_remaining -= delta
+		restart_remaining -= delta * match_speed
 		if restart_remaining <= 0:
 			_start_match()
 
@@ -570,6 +604,7 @@ func _finish_match() -> void:
 		restart_remaining = 3.0
 
 func _refresh_match() -> void:
+	objective_label.text = simulation.objective_status()
 	score_label.text = "%d  :  %d" % [simulation.kills[0], simulation.kills[1]]
 	var seconds: int = int(simulation.elapsed + 0.000001)
 	clock_label.text = "%02d:%02d / 01:30" % [seconds / 60, seconds % 60]
@@ -634,6 +669,8 @@ func _reset_test_session() -> void:
 		reveal_tween.kill()
 	card_result.hide()
 	card_result_label.text = ""
+	match_speed = 2.0
+	speed_button.text = "2×"
 	active = false
 	paused = false
 	auto_play = false
@@ -694,6 +731,10 @@ func _toggle_pause() -> void:
 	pause_button.text = "Continuar" if paused else "Pausar"
 	status_label.text = "Partida pausada." if paused else "Seu time está na arena."
 
+func _toggle_speed() -> void:
+	match_speed = 2.0 if match_speed == 1.0 else 1.0
+	speed_button.text = "%d×" % int(match_speed)
+
 func _set_auto_play(enabled: bool) -> void:
 	auto_play = enabled
 	if not enabled:
@@ -705,10 +746,18 @@ func _show_page(title: String) -> void:
 	if title == "PARTIDA" and not mode_chosen:
 		title = "MODOS"
 	current_page = title
+	var showing_match: bool = title == "PARTIDA"
+	for header: Control in secondary_header:
+		header.visible = not showing_match
+	scroll.visible = not showing_match
+	var skills_parent: Node = status_label.get_parent() if showing_match else pages.CARTAS.get_parent()
+	if pages["EVOLUÇÃO"].get_parent() != skills_parent:
+		pages["EVOLUÇÃO"].reparent(skills_parent)
+		skills_parent.move_child(pages["EVOLUÇÃO"], 2 if showing_match else 0)
 	if is_instance_valid(scroll):
 		scroll.set_deferred("scroll_vertical", 0)
 	for key: String in pages:
-		pages[key].visible = key == title
+		pages[key].visible = key == title or (key == "EVOLUÇÃO" and showing_match)
 		nav_buttons[key].add_theme_color_override("font_color", MINT if key == title else MUTED)
 		nav_buttons[key].add_theme_stylebox_override("normal", _style(Color("213c40") if key == title else Color("122231"), 10))
 

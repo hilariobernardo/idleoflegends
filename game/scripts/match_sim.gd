@@ -15,6 +15,15 @@ const ROLES: Array[String] = ["Topo", "Selva", "Meio", "Atirador", "Suporte"]
 var units: Array[Dictionary] = []
 var towers: Array[Dictionary] = []
 var events: Array[String] = []
+var objectives: Dictionary = {}
+var dragons: Array[int] = [0, 0]
+var barons: Array[int] = [0, 0]
+var baron_until: Array[float] = [0.0, 0.0]
+var objective_message: String = "Dragon: 00:20 e 00:45 · Baron: 01:05"
+var _spawn_index: int = 0
+const OBJECTIVE_SCHEDULE: Array[float] = [20.0, 45.0, 65.0]
+# Covers the separated attack positions around each river pit.
+const OBJECTIVE_RANGE: float = 0.13
 var elapsed: float = 0.0
 var duration: float = 90.0
 var finished: bool = false
@@ -40,6 +49,16 @@ func start(upgrades: Dictionary, seed_value: int = 0, opponent_level: float = 0.
 	units.clear()
 	towers.clear()
 	events.clear()
+	dragons = [0, 0]
+	barons = [0, 0]
+	baron_until = [0.0, 0.0]
+	_spawn_index = 0
+	objective_message = "Dragon: 00:20 e 00:45 · Baron: 01:05"
+	objectives = {}
+	for key: String in ["dragon", "baron"]:
+		var health: float = 300.0 if key == "dragon" else 600.0
+		objectives[key] = {"position": Map.objective_position(key), "hp": health,
+			"max_hp": health, "alive": false, "owner": -1}
 	elapsed = 0.0
 	_accumulator = 0.0
 	finished = false
@@ -61,7 +80,7 @@ func start(upgrades: Dictionary, seed_value: int = 0, opponent_level: float = 0.
 				"id": team * 5 + slot, "team": team, "lane": UNIT_LANES[slot],
 				"position": Vector2.ZERO, "progress": progress, "hp": max_health,
 				"max_hp": max_health, "alive": true, "respawn_left": 0.0,
-				"role": ROLES[slot], "gold": 0.0, "level": 1,
+				"objective": "", "returning": false, "role": ROLES[slot], "gold": 0.0, "level": 1,
 				"cooldown": _rng.randf_range(0.0, 0.6),
 				"power": team_form * _rng.randf_range(0.92, 1.08), "slot": slot,
 			}
@@ -166,6 +185,8 @@ func advance(delta: float) -> void:
 
 func get_summary() -> Dictionary:
 	return {
+		"blue_dragons": dragons[0], "red_dragons": dragons[1],
+		"blue_barons": barons[0], "red_barons": barons[1],
 		"winner": winner, "duration": elapsed,
 		"blue_kills": kills[0], "red_kills": kills[1],
 		"blue_gold": int(team_gold[0]), "red_gold": int(team_gold[1]),
@@ -176,6 +197,8 @@ func get_summary() -> Dictionary:
 
 func _tick() -> void:
 	elapsed = minf(elapsed + STEP, duration)
+	_spawn_objectives()
+	var objective_damage: Dictionary = {"dragon": [0.0, 0.0], "baron": [0.0, 0.0]}
 	var unit_damage: Array[float] = []
 	unit_damage.resize(units.size())
 	unit_damage.fill(0.0)
@@ -192,10 +215,19 @@ func _tick() -> void:
 			unit["respawn_left"] = maxf(0.0, float(unit["respawn_left"]) - STEP)
 			if float(unit["respawn_left"]) <= 0.0:
 				_respawn(unit)
+	# Move every objective participant before resolving attacks for either team.
+	for unit: Dictionary in units:
+		if bool(unit.alive):
+			_update_objective_movement(unit)
 	for unit: Dictionary in units:
 		if not bool(unit["alive"]):
 			continue
 		var team: int = int(unit["team"])
+		if not str(unit.objective).is_empty():
+			_attack_objective(unit, unit_damage, objective_damage)
+			continue
+		if bool(unit.returning):
+			continue
 		if int(unit.slot) == 1 and _advance_jungle(unit):
 			unit.level = mini(18, 1 + int(float(unit.gold) / 45.0))
 			continue
@@ -217,14 +249,14 @@ func _tick() -> void:
 		var tower_index: int = _enemy_tower_in_range(unit)
 		if tower_index >= 0:
 			if float(unit["cooldown"]) <= 0.0:
-				tower_damage[tower_index] += _attack_damage(unit) * (1.0 + _skill(team, "macro") * 0.05)
+				tower_damage[tower_index] += _attack_damage(unit) * (1.0 + _skill(team, "macro") * 0.05) * _structure_bonus(team)
 				unit["cooldown"] = 0.85
 			continue
 		var progress: float = float(unit["progress"])
 		var at_enemy_base: bool = progress >= 0.935 if team == 0 else progress <= 0.065
 		if at_enemy_base:
 			if float(unit["cooldown"]) <= 0.0:
-				base_damage[1 - team] += _attack_damage(unit) * 2.0
+				base_damage[1 - team] += _attack_damage(unit) * 2.0 * _structure_bonus(team)
 				unit["cooldown"] = 0.85
 			continue
 		var direction: float = 1.0 if team == 0 else -1.0
@@ -262,6 +294,7 @@ func _tick() -> void:
 			var attacking_team: int = 1 - int(tower["team"])
 			_grant_team_gold(attacking_team, 60.0)
 			_event("%s destruiu uma torre!" % _team_name(attacking_team))
+	_resolve_objectives(objective_damage)
 	for team: int in range(2):
 		base_hp[team] = maxf(0.0, base_hp[team] - base_damage[team])
 	if base_hp[0] <= 0.0 or base_hp[1] <= 0.0:
@@ -310,7 +343,7 @@ func _tower_target(tower: Dictionary) -> int:
 func _attack_damage(unit: Dictionary) -> float:
 	var team: int = int(unit["team"])
 	var item_power: float = 1.0 + floorf(float(unit["gold"]) / 60.0) * (0.10 + _skill(team, "builds") * 0.01)
-	return 11.0 * float(unit["power"]) * item_power * (1.0 + _skill(team, "trades") * 0.045) * _rng.randf_range(0.90, 1.10)
+	return 11.0 * float(unit["power"]) * item_power * (1.0 + _skill(team, "trades") * 0.045) * _rng.randf_range(0.90, 1.10) * (1.0 + 0.08 * dragons[team])
 
 
 func _defeat(unit: Dictionary) -> void:
@@ -324,6 +357,9 @@ func _defeat(unit: Dictionary) -> void:
 
 func _respawn(unit: Dictionary) -> void:
 	var team: int = int(unit["team"])
+	unit["objective"] = ""
+	unit["returning"] = false
+	unit["lane"] = UNIT_LANES[int(unit.slot)]
 	unit["alive"] = true
 	unit["hp"] = float(unit["max_hp"])
 	unit["progress"] = 0.045 if team == 0 else 0.955
@@ -388,3 +424,112 @@ func _event(message: String) -> void:
 	events.push_front(message)
 	if events.size() > 8:
 		events.resize(8)
+
+
+func _spawn_objectives() -> void:
+	while _spawn_index < OBJECTIVE_SCHEDULE.size() and elapsed + 0.000001 >= OBJECTIVE_SCHEDULE[_spawn_index]:
+		var key: String = "baron" if _spawn_index == 2 else "dragon"
+		_spawn_index += 1
+		var objective: Dictionary = objectives[key]
+		if bool(objective.alive):
+			continue
+		objective.alive = true
+		objective.hp = objective.max_hp
+		objective.owner = -1
+		objective_message = "%s nasceu!" % key.capitalize()
+		_event(objective_message)
+
+
+func _update_objective_movement(unit: Dictionary) -> void:
+	var desired: String = ""
+	if bool(objectives.baron.alive):
+		desired = "baron"
+	elif bool(objectives.dragon.alive) and int(unit.slot) in [1, 3, 4]:
+		desired = "dragon"
+	if desired != str(unit.objective):
+		if not desired.is_empty():
+			if str(unit.objective).is_empty() and not bool(unit.returning):
+				unit["return_lane"] = UNIT_LANES[int(unit.slot)]
+				unit["return_progress"] = float(unit.progress)
+			unit.objective = desired
+			unit.returning = false
+			unit.lane = -1
+			_set_route(unit, Map.objective_attack_position(desired, int(unit.id)))
+		else:
+			unit.objective = ""
+			if int(unit.slot) == 1:
+				_begin_jungle(unit)
+			else:
+				unit.returning = true
+				_set_route(unit, _sample_lane(int(unit.return_lane), float(unit.return_progress)))
+	var speed: float = (0.063 + 0.0015 * _skill(int(unit.team), "macro")) * MOVEMENT_MULTIPLIER
+	if not desired.is_empty():
+		_follow_route(unit, speed * STEP)
+	elif bool(unit.returning) and _follow_route(unit, speed * STEP):
+		unit.returning = false
+		unit.lane = unit.return_lane
+		unit.progress = unit.return_progress
+
+
+func _attack_objective(unit: Dictionary, damage: Array[float], monster_damage: Dictionary) -> void:
+	unit.cooldown = float(unit.cooldown) - STEP
+	if float(unit.cooldown) > 0.0:
+		return
+	var target: int = -1
+	var distance: float = OBJECTIVE_RANGE
+	for enemy: Dictionary in units:
+		if not bool(enemy.alive) or int(enemy.team) == int(unit.team) or str(enemy.objective) != str(unit.objective):
+			continue
+		var separation: float = Vector2(unit.position).distance_to(enemy.position)
+		if separation < distance:
+			distance = separation
+			target = int(enemy.id)
+	if target >= 0:
+		var hit: float = _attack_damage(unit)
+		if _rng.randf() < minf(0.25, _skill(int(units[target].team), "vision") * 0.012):
+			hit *= 0.35
+		damage[target] += hit
+	elif Vector2(unit.position).distance_to(objectives[unit.objective].position) <= OBJECTIVE_RANGE:
+		monster_damage[unit.objective][int(unit.team)] += _attack_damage(unit)
+	else:
+		return
+	unit.cooldown = 0.85
+
+
+func _resolve_objectives(damage: Dictionary) -> void:
+	for key: String in objectives:
+		var objective: Dictionary = objectives[key]
+		if not bool(objective.alive):
+			continue
+		objective.hp = maxf(0.0, float(objective.hp) - float(damage[key][0]) - float(damage[key][1]))
+		if float(objective.hp) > 0.0:
+			continue
+		var difference: float = float(damage[key][0]) - float(damage[key][1])
+		var team: int = (0 if difference > 0.0 else 1) if absf(difference) > 0.001 else _rng.randi_range(0, 1)
+		objective.alive = false
+		objective.owner = team
+		if key == "dragon":
+			dragons[team] = mini(2, dragons[team] + 1)
+			objective_message = "%s conquistou Dragon! +%d%% de dano." % [_team_name(team), dragons[team] * 8]
+		else:
+			barons[team] += 1
+			baron_until[team] = elapsed + 20.0
+			objective_message = "%s conquistou Baron! +30%% contra estruturas por 20s." % _team_name(team)
+		_event(objective_message)
+
+
+func _structure_bonus(team: int) -> float:
+	return 1.3 if elapsed < baron_until[team] else 1.0
+
+
+func objective_status() -> String:
+	var lines: PackedStringArray = PackedStringArray([objective_message])
+	for team: int in range(2):
+		var bonuses: PackedStringArray = PackedStringArray()
+		if dragons[team] > 0:
+			bonuses.append("Dragon +%d%% dano" % (dragons[team] * 8))
+		if elapsed < baron_until[team]:
+			bonuses.append("Baron +30%% estruturas (%ds)" % int(ceilf(baron_until[team] - elapsed)))
+		if not bonuses.is_empty():
+			lines.append("%s: %s" % [_team_name(team), " · ".join(bonuses)])
+	return "\n".join(lines)

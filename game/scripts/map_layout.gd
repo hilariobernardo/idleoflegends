@@ -66,3 +66,13 @@ static func route(from: Vector2, to: Vector2) -> PackedVector2Array:
 		return result
 	result.append(to)
 	return result
+
+
+static func objective_position(key: String) -> Vector2:
+	prepare()
+	return graph.get_point_position(int(data.objectives[key].center))
+
+
+static func objective_attack_position(key: String, unit_id: int) -> Vector2:
+	prepare()
+	return graph.get_point_position(int(data.objectives[key].positions[unit_id]))

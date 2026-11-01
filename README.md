@@ -1,12 +1,36 @@
-# Nexo Idle — protótipo v0.9
+# Nexo Idle — protótipo v0.10
 
-Abra `Jogar.cmd` para jogar ou importe `game/project.godot` no Godot para editar. O APK v0.9 foi exportado para Android; a instalação em aparelho físico ainda não foi validada.
+Abra `Jogar.cmd` para jogar ou importe `game/project.godot` no Godot para editar. O APK v0.10 reúne cartas, objetivos e painel inferior e foi exportado para Android; a instalação em aparelho físico ainda não foi validada.
 
-## Cartas e evolução — v0.9
+[**Baixar APK v0.10 pelo GitHub**](https://github.com/hilariobernardo/idleoflegends/raw/refs/heads/work/builds/Nexo-Idle-0.10.apk)
+
+## Cartas e evolução — v0.10
 
 A nova aba **Cartas** traz 15 cartas de raridades Normal, Rara, Épica, Lendária e Mítica. Cada abertura custa **100 Idle Points (IP)**; equipe até três cartas para ganhar bônus na próxima partida. IP vem de novas divisões, novos elos e marcos de dez vitórias. Há garantia de épica ou superior em até dez aberturas e devolução de IP por repetidas. Anúncios e pagamentos continuam planejados.
 
 **Evolução** reúne habilidades e estudos em dois grupos com blocos de duas colunas. O modo de teste começa com **300 IP**, mantém XP ilimitado e não salva a sessão. Consulte [as regras de cartas e IP](docs/CARTAS-v09.md).
+
+## Alterações recentes
+
+- v0.10: adicionadas 15 cartas com cinco raridades, Idle Points, até três cartas equipadas, devolução por repetidas e garantia de épica ou superior.
+- Habilidades e estudos agora formam dois grupos em grade de duas colunas, disponíveis na aba Evolução e no painel inferior durante a partida.
+- Integradas as melhorias do branch work (Dragon/Baron e velocidade 2×). APK atualizado entregue por download direto do GitHub, com a mesma orientação registrada no AGENTS.md.
+- O histórico de alterações também passou a ser mantido no AGENTS.md para orientar os próximos agentes.
+- Registrada a orientação para documentar as próximas alterações neste histórico.
+- Dragon e Baron foram reposicionados nos covis inferior e superior do rio. Os jogadores receberam posições individuais ao redor dos objetivos, com barras de vida ajustadas ao tamanho do mapa.
+- O modo de teste passou a iniciar em 2×, com botão para alternar entre 1× e 2× durante as partidas.
+
+## Dragon e Baron
+
+Baron fica no covil superior do rio e Dragon no covil inferior, afastados do mid. Cada personagem tem uma posição própria ao redor do objetivo, com espaço para sua barra de vida; mortes não reorganizam as posições dos sobreviventes. Os trajetos incluem as entradas do rio e dos covis.
+
+O modo de teste começa em **2×**. O botão **1× / 2×** alterna a velocidade da partida inteira: movimento, ataques, renascimento, objetivos e relógio. A seleção permanece nas próximas partidas; RECOMEÇAR TESTE volta a 2×.
+
+Dragon aparece aos 20 e 45 segundos, disputado por jungler, atirador e suporte. Se ainda estiver vivo no segundo horário, não nasce uma cópia. Baron aparece aos 65 segundos e reúne os cinco personagens vivos de cada equipe, com prioridade sobre Dragon. Os personagens percorrem os caminhos do mapa e atacam adversários próximos antes do monstro; depois retornam às rotas ou à selva.
+
+Dragon tem 300 de vida e concede +8% de dano por conquista, até +16% durante a partida. Baron tem 600 de vida e concede +30% de dano contra torres e nexo por 20 segundos. Os monstros não revidam. O dano é aplicado simultaneamente; conquista o time que causar mais dano no último passo da simulação, com sorteio em empate. Bônus valem para todo o time, sobrevivem ao renascimento e são zerados na próxima partida. Não há pontos extras diretos na decisão do vencedor.
+
+Os objetivos aparecem com identificação e vida no mapa, e o painel informa nascimentos, conquistas e bônus ativos. Valores iniciais de balanceamento.
 
 ## Mapa integrado — v0.8
 
@@ -52,13 +76,13 @@ Ranked exige **Barro IV no Normal + 10.000 XP** para desbloqueio permanente. Vit
 
 ## Progresso e testes
 
-`user://progress.json` usa formato v4. XP, habilidades, níveis dos estudos, pontos e desbloqueios existentes são preservados; os nomes dos elos mudam conforme o modo. Na migração v3, o tempo pendente é pago na taxa linear anterior antes de ativar a curva exponencial. v2 usa a taxa antiga por hora; v1 inicia o treino sem renda retroativa. Relógio local, limite offline e proteção contra recompensa duplicada continuam ativos.
+`user://progress.json` usa formato v5, com carteira IP, coleção, equipamentos e garantia de cartas. Saves v1–v4 continuam aceitos. XP, habilidades, níveis dos estudos, pontos e desbloqueios existentes são preservados; os nomes dos elos mudam conforme o modo. Na migração v3, o tempo pendente é pago na taxa linear anterior antes de ativar a curva exponencial. v2 usa a taxa antiga por hora; v1 inicia o treino sem renda retroativa. Relógio local, limite offline e proteção contra recompensa duplicada continuam ativos.
 
 Testes em `game/tests/`: progressão, economia/elos/migração, fluxo da interface e simulação. Referências sincronizadas em `sources/` são somente leitura.
 
 ## APK para teste Android
 
-O arquivo `builds/Nexo-Idle-v0.9.apk` é uma versão de depuração para testes, compatível com Android 7.0 (API 24) ou superior em dispositivos ARM. Transfira-o ao celular, abra-o e autorize a instalação de aplicativos dessa origem se o Android solicitar. Não é uma versão para publicação na Play Store. Esta compilação usa uma nova assinatura de depuração; se houver um APK antigo instalado com outra assinatura, o Android não permitirá atualizar por cima. Desinstalar o antigo remove seus dados locais. O modo de teste atual não salva o progresso. Não foi possível testar a instalação ou a interface em aparelho físico, pois nenhum dispositivo estava conectado. Os resultados e o roteiro de teste estão em `docs/TESTE-ANDROID.md`.
+O arquivo `builds/Nexo-Idle-0.10.apk` é uma versão de depuração para testes, compatível com Android 7.0 (API 24) ou superior em dispositivos ARM. Transfira-o ao celular, abra-o e autorize a instalação de aplicativos dessa origem se o Android solicitar. Não é uma versão para publicação na Play Store. Esta compilação usa uma nova assinatura de depuração; se houver um APK antigo instalado com outra assinatura, o Android não permitirá atualizar por cima. Desinstalar o antigo remove seus dados locais. O modo de teste atual não salva o progresso. Não foi possível testar a instalação ou a interface em aparelho físico, pois nenhum dispositivo estava conectado. Os resultados e o roteiro de teste estão em `docs/TESTE-ANDROID.md`.
 
 
 
