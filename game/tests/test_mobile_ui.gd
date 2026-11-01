@@ -44,19 +44,63 @@ func _run() -> void:
 		await _frames()
 		_check(app.size.is_equal_approx(root.get_visible_rect().size), "Root fills viewport %s" % dimensions)
 		_check(app.scroll.size.is_equal_approx(app.size), "Scroll fills viewport %s" % dimensions)
-		for page: String in ["MODOS", "PARTIDA", "MELHORIAS", "ESTUDOS"]:
+		for page: String in ["MODOS", "PARTIDA", "EVOLUÇÃO", "CARTAS"]:
 			app._show_page(page)
 			await _frames()
-			_check(app.scroll.get_child(2).size.x <= app.scroll.size.x + 1 if app.scroll.get_child_count() > 2 else true, "Content fits width")
+			_check(app.pages[page].visible and app.current_page == page, "Correct page is visible: " + page)
+			for child: Node in app.scroll.get_children():
+				if child is MarginContainer:
+					_check(child.size.x <= app.scroll.size.x + 1, "Content fits width: %s %s" % [page, dimensions])
+			for button: Node in app.find_children("*", "Button", true, false):
+				if button.is_visible_in_tree():
+					var rect: Rect2 = button.get_global_rect()
+					_check(rect.position.x >= 0 and rect.end.x <= app.size.x + 1, "Button stays inside viewport: " + button.text)
 		if OS.get_cmdline_user_args().has("--capture"):
 			app._show_page("MODOS")
 			await _frames()
 			await RenderingServer.frame_post_draw
 			root.get_texture().get_image().save_png("res://../artifacts/mobile-%dx%d.png" % [dimensions.x, dimensions.y])
+	var groups: Array[GridContainer] = []
+	for child: Node in app.pages["EVOLUÇÃO"].get_children():
+		if child is GridContainer:
+			groups.append(child)
+	_check(groups.size() == 2, "Evolution has separate skill and study groups")
+	if groups.size() == 2:
+		_check(groups[0].columns == 2 and groups[0].get_child_count() == 5, "Five skills in two columns")
+		_check(groups[1].columns == 2 and groups[1].get_child_count() == 4, "Four studies in two columns")
+	app._show_page("EVOLUÇÃO")
+	app.skill_buttons.farm.pressed.emit()
+	_check(app.progress.upgrades.farm == 0, "Unaffordable skill purchase is rejected")
+	app.progress.xp = 1000
+	app.progress.lifetime_xp = 1000
+	app._refresh_progress()
+	app.skill_buttons.farm.pressed.emit()
+	app.training_buttons.videos.pressed.emit()
+	_check(app.progress.upgrades.farm == 1 and app.progress.training_levels.videos == 2, "Both upgrade groups remain functional")
+	app._show_page("CARTAS")
+	_check(app.card_open_button.disabled and app.card_buttons.size() == 15, "Empty wallet disables opening and catalog has 15 cards")
+	app.progress.idle_points = 300
+	app._refresh_progress()
+	app.card_open_button.pressed.emit()
+	await _frames()
+	_check(app.progress.idle_points == 200 and app.progress.collection.size() == 1, "Open button purchases one card")
+	_check(app.card_result.visible and app.card_result_label.text.contains("NOVA CARTA"), "Purchased card is revealed")
+	var id: String = str(app.progress.collection.keys()[0])
+	app.card_buttons[id].pressed.emit()
+	_check(app.progress.equipped_cards.has(id) and app.card_buttons[id].text == "REMOVER", "Equip button updates collection and label")
+	app._start_match()
+	var equipped_skills: Dictionary = app.progress.combat_upgrades()
+	_check(app.active and app.simulation._upgrades == equipped_skills, "Match starts with equipped bonuses")
+	app.card_buttons[id].pressed.emit()
+	_check(app.simulation._upgrades == equipped_skills and app.progress.equipped_cards.is_empty(), "Removing a card does not alter an ongoing match")
+	app.progress.practice_mode = true
+	app._reset_test_session()
+	_check(not app.active and app.current_page == "MODOS" and not app.card_result.visible, "Reset cancels match, hides reveal and returns to modes")
+	_check(app.progress.collection.is_empty() and app.progress.idle_points == 300 and app.ip_label.text == "300 IP", "Reset restores starter IP and clears collection")
 	app.queue_free()
 	await process_frame
 	DirAccess.remove_absolute(ProjectSettings.globalize_path("res://tests/tmp_mobile.json"))
-	print("PASS mobile UI: drag, tap, mode gate, viewport sizes" if failures == 0 else "FAIL mobile UI: %d" % failures)
+	print("PASS mobile UI: drag, tap, 4 viewport sizes, upgrade grids, cards, combat bonuses, reset" if failures == 0 else "FAIL mobile UI: %d" % failures)
 	quit(0 if failures == 0 else 1)
 
 func _mouse_button(pos: Vector2, pressed: bool) -> void:

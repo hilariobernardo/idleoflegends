@@ -1,6 +1,12 @@
-# Nexo Idle — protótipo v0.8
+# Nexo Idle — protótipo v0.9
 
-Abra `Jogar.cmd` para jogar ou `Abrir editor.cmd` para editar no Godot. O protótipo é testado no computador; a versão móvel ainda não foi exportada.
+Abra `Jogar.cmd` para jogar ou importe `game/project.godot` no Godot para editar. O APK v0.9 foi exportado para Android; a instalação em aparelho físico ainda não foi validada.
+
+## Cartas e evolução — v0.9
+
+A nova aba **Cartas** traz 15 cartas de raridades Normal, Rara, Épica, Lendária e Mítica. Cada abertura custa **100 Idle Points (IP)**; equipe até três cartas para ganhar bônus na próxima partida. IP vem de novas divisões, novos elos e marcos de dez vitórias. Há garantia de épica ou superior em até dez aberturas e devolução de IP por repetidas. Anúncios e pagamentos continuam planejados.
+
+**Evolução** reúne habilidades e estudos em dois grupos com blocos de duas colunas. O modo de teste começa com **300 IP**, mantém XP ilimitado e não salva a sessão. Consulte [as regras de cartas e IP](docs/CARTAS-v09.md).
 
 ## Mapa integrado — v0.8
 
@@ -52,7 +58,7 @@ Testes em `game/tests/`: progressão, economia/elos/migração, fluxo da interfa
 
 ## APK para teste Android
 
-O arquivo `builds/Nexo-Idle-teste.apk` é uma versão de depuração para testes, compatível com Android 7.0 (API 24) ou superior em dispositivos ARM. Transfira-o ao celular, abra-o e autorize a instalação de aplicativos dessa origem se o Android solicitar. Não é uma versão para publicação na Play Store. O progresso do celular é separado do progresso no computador. Não foi possível testar a instalação ou a interface em aparelho físico, pois nenhum dispositivo estava conectado. Os resultados e o roteiro de teste estão em `docs/TESTE-ANDROID.md`.
+O arquivo `builds/Nexo-Idle-v0.9.apk` é uma versão de depuração para testes, compatível com Android 7.0 (API 24) ou superior em dispositivos ARM. Transfira-o ao celular, abra-o e autorize a instalação de aplicativos dessa origem se o Android solicitar. Não é uma versão para publicação na Play Store. Esta compilação usa uma nova assinatura de depuração; se houver um APK antigo instalado com outra assinatura, o Android não permitirá atualizar por cima. Desinstalar o antigo remove seus dados locais. O modo de teste atual não salva o progresso. Não foi possível testar a instalação ou a interface em aparelho físico, pois nenhum dispositivo estava conectado. Os resultados e o roteiro de teste estão em `docs/TESTE-ANDROID.md`.
 
 
 

@@ -2,7 +2,13 @@ extends RefCounted
 
 ## Permanent progression for the first playable Normal Game prototype.
 ## Balance values are deliberately provisional, not final design decisions.
-const SAVE_VERSION: int = 4
+const SAVE_VERSION: int = 5
+const Cards = preload("res://scripts/card_catalog.gd")
+const DIVISION_IP: int = 25
+const TIER_IP: int = 75
+const WIN_MILESTONE: int = 10
+const WIN_MILESTONE_IP: int = 50
+const PRACTICE_IP: int = 300
 const MAX_LEVEL: int = 20
 const MAX_COUNTER: int = 9_000_000_000_000
 const MAX_TIMESTAMP: int = 4_102_444_800
@@ -47,6 +53,13 @@ var practice_mode: bool = false
 var lifetime_xp: int = 0
 var matches: int = 0
 var wins: int = 0
+var idle_points: int = 0
+var collection: Dictionary = {}
+var equipped_cards: Array[String] = []
+var pulls_without_epic: int = 0
+var highest_ladders: Dictionary = {"normal": 0, "ranked": 0}
+var last_ip_reward: int = 0
+var _card_rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var upgrades: Dictionary = {"farm": 0, "trades": 0, "builds": 0, "macro": 0, "vision": 0}
 var training_levels: Dictionary = {"videos": 1, "tutoriais": 0, "competicoes": 0, "coach": 0}
 # Read-only compatibility view for callers of the old ownership API.
@@ -71,10 +84,13 @@ var _load_attempted: bool = false
 
 
 func load_save() -> void:
+	_card_rng.randomize()
 	if practice_mode:
 		var fresh = get_script().new()
 		_restore(fresh._snapshot())
 		xp = MAX_COUNTER
+		idle_points = PRACTICE_IP
+		last_ip_reward = 0
 		training_last_at = _now()
 		last_training_reward = 0
 		last_error = ""
@@ -195,6 +211,7 @@ func buy_upgrade(key: String) -> bool:
 
 
 func record_match(won: bool, mode: String = "") -> int:
+	last_ip_reward = 0
 	var actual_mode: String = _mode(mode)
 	if _write_blocked or not _mode_available(actual_mode):
 		return 0
@@ -205,10 +222,76 @@ func record_match(won: bool, mode: String = "") -> int:
 	if won:
 		wins = mini(matches, wins + 1)
 	ladders[actual_mode] = clampi(int(ladders[actual_mode]) + (25 if won else -25), 0, ladder_cap(actual_mode))
+	var previous_high: int = int(highest_ladders[actual_mode])
+	var new_high: int = maxi(previous_high, int(ladders[actual_mode]))
+	# First-time divisions only; demotion and re-promotion cannot farm IP.
+	var division_limit: int = 28 if actual_mode == "ranked" else 27
+	var new_divisions: int = mini(new_high / 100, division_limit) - mini(previous_high / 100, division_limit)
+	var new_tiers: int = _tier_index(new_high, actual_mode) - _tier_index(previous_high, actual_mode)
+	var ip_reward: int = new_divisions * DIVISION_IP + new_tiers * TIER_IP
+	if won and wins > int(previous.wins) and wins % WIN_MILESTONE == 0:
+		ip_reward += WIN_MILESTONE_IP
+	highest_ladders[actual_mode] = new_high
+	ip_reward = mini(ip_reward, MAX_COUNTER - idle_points)
+	idle_points += ip_reward
 	if not save_game():
 		_restore(previous)
 		return 0
+	last_ip_reward = ip_reward
 	return reward
+
+
+func _tier_index(points: int, mode: String) -> int:
+	if mode == "ranked" and points >= 2800:
+		return 9 if points >= 3300 else (8 if points >= 3000 else 7)
+	return int(points / 400)
+
+
+func open_card() -> Dictionary:
+	if _write_blocked:
+		return {}
+	if idle_points < Cards.PACK_COST:
+		last_error = "IP insuficiente. Conquiste novas divisões ou complete 10 vitórias."
+		return {}
+	var previous: Dictionary = _snapshot()
+	var card: Dictionary = Cards.draw(_card_rng, pulls_without_epic >= Cards.PITY_LIMIT - 1)
+	var id: String = str(card.id)
+	var duplicate: bool = collection.has(id)
+	var refund: int = int(Cards.RARITIES[int(card.rarity)].refund) if duplicate else 0
+	idle_points -= Cards.PACK_COST - refund
+	collection[id] = mini(MAX_COUNTER, int(collection.get(id, 0)) + 1)
+	pulls_without_epic = 0 if int(card.rarity) >= 2 else pulls_without_epic + 1
+	if not save_game():
+		_restore(previous)
+		return {}
+	last_error = ""
+	return {"card": card, "duplicate": duplicate, "refund": refund}
+
+
+func toggle_card(id: String) -> bool:
+	if _write_blocked or not collection.has(id) or Cards.find_card(id).is_empty():
+		return false
+	var previous: Dictionary = _snapshot()
+	if equipped_cards.has(id):
+		equipped_cards.erase(id)
+	elif equipped_cards.size() < Cards.MAX_EQUIPPED:
+		equipped_cards.append(id)
+	else:
+		last_error = "Você já equipou 3 cartas. Remova uma para trocar."
+		return false
+	if not save_game():
+		_restore(previous)
+		return false
+	last_error = ""
+	return true
+
+
+func combat_upgrades() -> Dictionary:
+	var result: Dictionary = upgrades.duplicate(true)
+	for id: String in equipped_cards:
+		var card: Dictionary = Cards.find_card(id)
+		result[card.skill] = int(result[card.skill]) + int(card.bonus)
+	return result
 
 
 func rank_division(mode: String = "") -> int:
@@ -388,6 +471,9 @@ func _snapshot() -> Dictionary:
 		"training_levels": training_levels.duplicate(true), "training_last_at": training_last_at,
 		"training_remainder": training_remainder, "selected_mode": selected_mode,
 		"ranked_unlocked": ranked_unlocked, "ladders": ladders.duplicate(true),
+		"idle_points": idle_points, "collection": collection.duplicate(true),
+		"equipped_cards": equipped_cards.duplicate(), "pulls_without_epic": pulls_without_epic,
+		"highest_ladders": highest_ladders.duplicate(true),
 	}
 
 
@@ -406,6 +492,19 @@ func _restore(data: Dictionary) -> void:
 	ranked_unlocked = bool(data["ranked_unlocked"])
 	for mode: String in ["normal", "ranked"]:
 		ladders[mode] = int(data["ladders"][mode])
+	# Older saves begin with an empty collection and their existing rank as the high-water mark.
+	var has_cards: bool = int(data["schema_version"]) >= 5
+	idle_points = int(data["idle_points"]) if has_cards else 0
+	collection = {}
+	if has_cards:
+		for id: String in data["collection"]:
+			collection[id] = int(data["collection"][id])
+	equipped_cards.clear()
+	for id: String in (data["equipped_cards"] if has_cards else []):
+		equipped_cards.append(id)
+	pulls_without_epic = int(data["pulls_without_epic"]) if has_cards else 0
+	for mode: String in ["normal", "ranked"]:
+		highest_ladders[mode] = int(data["highest_ladders"][mode]) if has_cards else int(ladders[mode])
 
 
 func _migrate_hourly_training(data: Dictionary) -> void:
@@ -487,6 +586,37 @@ func _valid_snapshot(data: Dictionary) -> bool:
 	if data.get("selected_mode") not in ["normal", "ranked"]:
 		return false
 	if not bool(data["ranked_unlocked"]) and (data["selected_mode"] == "ranked" or int(data["ladders"]["ranked"]) > 0):
+		return false
+	if int(data["schema_version"]) >= 5 and not _valid_cards(data):
+		return false
+	return true
+
+
+func _valid_cards(data: Dictionary) -> bool:
+	if not _whole_number(data.get("idle_points"), 0, MAX_COUNTER):
+		return false
+	if not _whole_number(data.get("pulls_without_epic"), 0, Cards.PITY_LIMIT - 1):
+		return false
+	if not data.get("collection") is Dictionary or not data.get("equipped_cards") is Array:
+		return false
+	var owned: Dictionary = data["collection"]
+	for id: Variant in owned:
+		if not id is String or Cards.find_card(id).is_empty() or not _whole_number(owned[id], 1, MAX_COUNTER):
+			return false
+	var equipped: Array = data["equipped_cards"]
+	if equipped.size() > Cards.MAX_EQUIPPED:
+		return false
+	var seen: Array[String] = []
+	for id: Variant in equipped:
+		if not id is String or not owned.has(id) or seen.has(id):
+			return false
+		seen.append(id)
+	if not data.get("highest_ladders") is Dictionary:
+		return false
+	for mode: String in ["normal", "ranked"]:
+		if not _whole_number(data["highest_ladders"].get(mode), int(data["ladders"][mode]), ladder_cap(mode)):
+			return false
+	if not bool(data["ranked_unlocked"]) and int(data["highest_ladders"].ranked) > 0:
 		return false
 	return true
 
