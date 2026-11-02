@@ -11,6 +11,7 @@ Navigation generation: scripts/build_navigation.py (Python, Pillow, NumPy), run 
 
 ## Histórico de alterações
 
+- v0.11: cartas passaram a ter efeitos percentuais próprios (XP por partida, ouro, dano específico, crítico, velocidade, resistência, vida e renascimento), sem conceder níveis de habilidades. Efeitos e recompensa de XP são fixados no início da partida; coleção existente preservada.
 - v0.10: cartas gacha com cinco raridades, Idle Points, três equipamentos, devolução por repetidas e garantia de épica; habilidades e estudos em duas colunas, também no painel inferior da partida.
 - v0.10: integradas as mudanças do branch work (Dragon/Baron, posições dos jogadores e velocidade 2×); entrega do APK por link direto do GitHub, com histórico e README sincronizados.
 - O histórico de alterações também passou a ser mantido neste arquivo para orientar os próximos agentes.

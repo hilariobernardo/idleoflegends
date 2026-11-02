@@ -2,6 +2,7 @@ extends RefCounted
 ## Deterministic, fixed-step simulation. All coordinates are normalized map coordinates.
 
 const Map = preload("res://scripts/map_layout.gd")
+const Cards = preload("res://scripts/card_catalog.gd")
 
 const STEP: float = 0.1
 const MOVEMENT_MULTIPLIER: float = 3.0
@@ -31,6 +32,8 @@ var winner: int = -1
 var kills: Array[int] = [0, 0]
 var team_gold: Array[float] = [0.0, 0.0]
 var base_hp: Array[float] = [BASE_HEALTH, BASE_HEALTH]
+var base_max_hp: Array[float] = [BASE_HEALTH, BASE_HEALTH]
+var card_effects: Dictionary = {}
 
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var _upgrades: Dictionary = {}
@@ -39,8 +42,9 @@ var _accumulator: float = 0.0
 var _started: bool = false
 
 
-func start(upgrades: Dictionary, seed_value: int = 0, opponent_level: float = 0.0, mode_label: String = "Normal Game") -> void:
+func start(upgrades: Dictionary, seed_value: int = 0, opponent_level: float = 0.0, mode_label: String = "Normal Game", effects: Dictionary = {}) -> void:
 	_upgrades = upgrades.duplicate(true)
+	card_effects = Cards.sanitize_effects(effects)
 	_opponent_level = clampf(opponent_level, 0.0, 50.0) if is_finite(opponent_level) else 0.0
 	if seed_value == 0:
 		_rng.randomize()
@@ -65,14 +69,15 @@ func start(upgrades: Dictionary, seed_value: int = 0, opponent_level: float = 0.
 	winner = -1
 	kills = [0, 0]
 	team_gold = [0.0, 0.0]
-	base_hp = [BASE_HEALTH, BASE_HEALTH]
+	base_max_hp = [BASE_HEALTH * (1.0 + _effect(0, "base_health")), BASE_HEALTH]
+	base_hp.assign(base_max_hp)
 	_started = true
 	for team: int in range(2):
 		# Match-to-match execution varies symmetrically; purchased skills still
 		# improve the same stats, but a small level gap is no longer a certain win.
 		var team_form: float = _rng.randf_range(0.80, 1.20)
 		for slot: int in range(5):
-			var max_health: float = 130.0 + _skill(team, "builds") * 5.0
+			var max_health: float = (130.0 + _skill(team, "builds") * 5.0) * (1.0 + _effect(team, "max_health"))
 			var progress: float = 0.04 + float(slot % 2) * 0.025
 			if team == 1:
 				progress = 1.0 - progress
@@ -143,7 +148,7 @@ func _advance_jungle(unit: Dictionary) -> bool:
 			return false
 		_begin_jungle(unit)
 	var team: int = int(unit.team)
-	var speed: float = (0.063 + 0.0015 * _skill(team, "macro")) * MOVEMENT_MULTIPLIER
+	var speed: float = _move_speed(team)
 	if unit.jungle_state == "approach":
 		if _follow_route(unit, speed * STEP):
 			unit.lane = unit.gank_lane
@@ -158,7 +163,7 @@ func _advance_jungle(unit: Dictionary) -> bool:
 	unit.jungle_state = "clear"
 	unit.camp_timer += STEP
 	if unit.camp_timer + 0.000001 >= CAMP_CLEAR_SECONDS:
-		var reward: float = 18.0 * (1.0 + 0.08 * _skill(team, "farm"))
+		var reward: float = 18.0 * (1.0 + 0.08 * _skill(team, "farm")) * (1.0 + _effect(team, "gold_gain"))
 		unit.gold += reward
 		team_gold[team] += reward
 		unit.camp_timer = 0.0
@@ -231,7 +236,7 @@ func _tick() -> void:
 		if int(unit.slot) == 1 and _advance_jungle(unit):
 			unit.level = mini(18, 1 + int(float(unit.gold) / 45.0))
 			continue
-		var farm_gain: float = STEP * 4.0 * (1.0 + 0.08 * _skill(team, "farm"))
+		var farm_gain: float = STEP * 4.0 * (1.0 + 0.08 * _skill(team, "farm")) * (1.0 + _effect(team, "gold_gain"))
 		unit["gold"] = float(unit["gold"]) + farm_gain
 		team_gold[team] += farm_gain
 		unit["level"] = mini(18, 1 + int(float(unit["gold"]) / 45.0))
@@ -243,25 +248,25 @@ func _tick() -> void:
 				var target_team: int = int(units[target]["team"])
 				if _rng.randf() < minf(0.25, _skill(target_team, "vision") * 0.012):
 					damage *= 0.35
-				unit_damage[target] += damage
-				unit["cooldown"] = 0.85
+				unit_damage[target] += damage * (1.0 + _effect(team, "champion_damage"))
+				unit["cooldown"] = _attack_interval(team)
 			continue
 		var tower_index: int = _enemy_tower_in_range(unit)
 		if tower_index >= 0:
 			if float(unit["cooldown"]) <= 0.0:
 				tower_damage[tower_index] += _attack_damage(unit) * (1.0 + _skill(team, "macro") * 0.05) * _structure_bonus(team)
-				unit["cooldown"] = 0.85
+				unit["cooldown"] = _attack_interval(team)
 			continue
 		var progress: float = float(unit["progress"])
 		var at_enemy_base: bool = progress >= 0.935 if team == 0 else progress <= 0.065
 		if at_enemy_base:
 			if float(unit["cooldown"]) <= 0.0:
 				base_damage[1 - team] += _attack_damage(unit) * 2.0 * _structure_bonus(team)
-				unit["cooldown"] = 0.85
+				unit["cooldown"] = _attack_interval(team)
 			continue
 		var direction: float = 1.0 if team == 0 else -1.0
 		var lane_length: float = Map.lane_length(int(unit.lane))
-		var speed: float = MOVEMENT_MULTIPLIER * (0.063 + 0.0015 * _skill(team, "macro")) / lane_length
+		var speed: float = _move_speed(team) / lane_length
 		movement[int(unit["id"])] = clampf(progress + direction * speed * STEP, 0.045, 0.955)
 	for unit: Dictionary in units:
 		var next_progress: float = movement[int(unit["id"])]
@@ -283,7 +288,7 @@ func _tick() -> void:
 		var unit: Dictionary = units[index]
 		if not bool(unit["alive"]):
 			continue
-		unit["hp"] = maxf(0.0, float(unit["hp"]) - unit_damage[index])
+		unit["hp"] = maxf(0.0, float(unit["hp"]) - unit_damage[index] * (1.0 - _effect(int(unit.team), "damage_reduction")))
 		if float(unit["hp"]) <= 0.0:
 			_defeat(unit)
 	for index: int in range(towers.size()):
@@ -343,13 +348,30 @@ func _tower_target(tower: Dictionary) -> int:
 func _attack_damage(unit: Dictionary) -> float:
 	var team: int = int(unit["team"])
 	var item_power: float = 1.0 + floorf(float(unit["gold"]) / 60.0) * (0.10 + _skill(team, "builds") * 0.01)
-	return 11.0 * float(unit["power"]) * item_power * (1.0 + _skill(team, "trades") * 0.045) * _rng.randf_range(0.90, 1.10) * (1.0 + 0.08 * dragons[team])
+	var damage: float = 11.0 * float(unit["power"]) * item_power * (1.0 + _skill(team, "trades") * 0.045) * _rng.randf_range(0.90, 1.10) * (1.0 + 0.08 * dragons[team])
+	# No extra RNG draw without crit cards, preserving existing deterministic simulations.
+	var critical_chance: float = _effect(team, "crit_chance")
+	if critical_chance > 0.0 and _rng.randf() < critical_chance:
+		damage *= 1.5
+	return damage
+
+
+func _effect(team: int, key: String) -> float:
+	return float(card_effects.get(key, 0)) / 100.0 if team == 0 else 0.0
+
+
+func _move_speed(team: int) -> float:
+	return (0.063 + 0.0015 * _skill(team, "macro")) * MOVEMENT_MULTIPLIER * (1.0 + _effect(team, "movement_speed"))
+
+
+func _attack_interval(team: int) -> float:
+	return 0.85 / (1.0 + _effect(team, "attack_speed"))
 
 
 func _defeat(unit: Dictionary) -> void:
 	var team: int = int(unit["team"])
 	unit["alive"] = false
-	unit["respawn_left"] = maxf(3.0, 6.0 - _skill(team, "vision") * 0.08)
+	unit["respawn_left"] = maxf(3.0, 6.0 - _skill(team, "vision") * 0.08) * (1.0 - _effect(team, "respawn_reduction"))
 	kills[1 - team] += 1
 	_grant_team_gold(1 - team, 12.0)
 	_event("%s: %s abatido." % [_team_name(team), str(unit["role"])])
@@ -372,6 +394,7 @@ func _respawn(unit: Dictionary) -> void:
 
 
 func _grant_team_gold(team: int, amount_per_unit: float) -> void:
+	amount_per_unit *= 1.0 + _effect(team, "gold_gain")
 	for unit: Dictionary in units:
 		if int(unit["team"]) == team:
 			unit["gold"] = float(unit["gold"]) + amount_per_unit
@@ -401,7 +424,9 @@ func _living_towers(team: int) -> int:
 
 
 func _score(team: int) -> float:
-	return base_hp[team] + float(_living_towers(team)) * 250.0 + float(kills[team]) * 20.0 + team_gold[team] * 0.10
+	# A larger untouched nexus must not grant free tiebreak points just for equipping a card.
+	var base_score: float = BASE_HEALTH * base_hp[team] / base_max_hp[team]
+	return base_score + float(_living_towers(team)) * 250.0 + float(kills[team]) * 20.0 + team_gold[team] * 0.10
 
 
 func _finish() -> void:
@@ -462,7 +487,7 @@ func _update_objective_movement(unit: Dictionary) -> void:
 			else:
 				unit.returning = true
 				_set_route(unit, _sample_lane(int(unit.return_lane), float(unit.return_progress)))
-	var speed: float = (0.063 + 0.0015 * _skill(int(unit.team), "macro")) * MOVEMENT_MULTIPLIER
+	var speed: float = _move_speed(int(unit.team))
 	if not desired.is_empty():
 		_follow_route(unit, speed * STEP)
 	elif bool(unit.returning) and _follow_route(unit, speed * STEP):
@@ -488,12 +513,12 @@ func _attack_objective(unit: Dictionary, damage: Array[float], monster_damage: D
 		var hit: float = _attack_damage(unit)
 		if _rng.randf() < minf(0.25, _skill(int(units[target].team), "vision") * 0.012):
 			hit *= 0.35
-		damage[target] += hit
+		damage[target] += hit * (1.0 + _effect(int(unit.team), "champion_damage"))
 	elif Vector2(unit.position).distance_to(objectives[unit.objective].position) <= OBJECTIVE_RANGE:
-		monster_damage[unit.objective][int(unit.team)] += _attack_damage(unit)
+		monster_damage[unit.objective][int(unit.team)] += _attack_damage(unit) * (1.0 + _effect(int(unit.team), "objective_damage"))
 	else:
 		return
-	unit.cooldown = 0.85
+	unit.cooldown = _attack_interval(int(unit.team))
 
 
 func _resolve_objectives(damage: Dictionary) -> void:
@@ -519,7 +544,7 @@ func _resolve_objectives(damage: Dictionary) -> void:
 
 
 func _structure_bonus(team: int) -> float:
-	return 1.3 if elapsed < baron_until[team] else 1.0
+	return (1.3 if elapsed < baron_until[team] else 1.0) * (1.0 + _effect(team, "structure_damage"))
 
 
 func objective_status() -> String:

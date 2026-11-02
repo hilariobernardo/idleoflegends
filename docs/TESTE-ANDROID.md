@@ -1,5 +1,15 @@
 # Teste inicial de balanceamento e Android
 
+## Efeitos percentuais — v0.11 — 02/11/2026
+
+Dois testes aprovados com Godot 4.7.2: `test_cards.gd` passou com 2.076 verificações, incluindo todos os efeitos, combinações, aplicação em combate, ouro, XP, persistência e ausência de níveis extras. `test_mobile_ui.gd` passou com quatro tamanhos de tela, descrições, equipamento, objetivos, velocidade, reinício e recompensa de XP fixada pelo equipamento inicial, mesmo após trocar cartas.
+
+APK: [Nexo-Idle-0.11.apk](https://github.com/hilariobernardo/idleoflegends/raw/refs/heads/work/builds/Nexo-Idle-0.11.apk), versão 0.11/código 11. Assinatura v2/v3 e alinhamento de 16 KB verificados. SHA-256: `c796cbb59252f83f0697ba078151335975e73da034605db95181dcd27ff63323`.
+
+O ambiente foi renovado e a chave temporária da v0.10 não estava disponível. Esta compilação usa uma nova assinatura de depuração, mantida fora do repositório; o Android pode exigir desinstalar a versão anterior, apagando dados locais. O modo de teste continua sem salvar sessões. Não houve instalação em aparelho físico; os testes de interface foram executados sem janela gráfica.
+
+As regras e a tabela das 15 cartas estão em [CARTAS-v011.md](CARTAS-v011.md). AGENTS.md e README foram atualizados no mesmo commit.
+
 ## Entrega v0.10 pelo GitHub — 01/11/2026
 
 Integradas as cartas/IP e grades de evolução ao branch `work`, preservando Dragon/Baron, posições dos jogadores, mapa e velocidade 2×. Os dois testes foram executados novamente com Godot 4.7.2: `test_cards.gd` passou com 2.035 verificações; `test_mobile_ui.gd` passou com os quatro tamanhos de tela, painel inferior, compras, cartas, bônus, objetivos, velocidade e reinício. A verificação de arraste considera o espaço de rolagem realmente disponível na tela.

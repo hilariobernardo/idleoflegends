@@ -95,14 +95,27 @@ func _run() -> void:
 	var id: String = str(app.progress.collection.keys()[0])
 	app.card_buttons[id].pressed.emit()
 	_check(app.progress.equipped_cards.has(id) and app.card_buttons[id].text == "REMOVER", "Equip button updates collection and label")
+	_check(not app.card_result_label.text.contains("níveis"), "Card reveal describes effects instead of skill levels")
+	app.card_buttons[id].pressed.emit()
+	app.progress.collection["harvest"] = 1
+	app._refresh_progress()
+	app.card_buttons.harvest.pressed.emit()
 	app._start_match()
 	var equipped_skills: Dictionary = app.progress.combat_upgrades()
-	_check(app.active and app.simulation._upgrades == equipped_skills, "Match starts with equipped bonuses")
+	_check(app.active and app.simulation._upgrades == app.progress.upgrades and app.simulation.card_effects == {"match_xp": 12}, "Match keeps skills and freezes independent card effects")
 	_check(app.simulation.objectives.has("dragon") and app.simulation.objectives.has("baron"), "Dragon and Baron remain available")
 	app._toggle_speed()
 	_check(app.match_speed == 2.0 and app.speed_button.text == "2×", "Speed toggle remains functional")
-	app.card_buttons[id].pressed.emit()
-	_check(app.simulation._upgrades == equipped_skills and app.progress.equipped_cards.is_empty(), "Removing a card does not alter an ongoing match")
+	app.card_buttons.harvest.pressed.emit()
+	_check(app.simulation._upgrades == equipped_skills and app.simulation.card_effects == {"match_xp": 12} and app.progress.equipped_cards.is_empty(), "Removing a card does not alter ongoing effects")
+	app.progress.collection["eternal"] = 1
+	app._refresh_progress()
+	app.card_buttons.eternal.pressed.emit()
+	var previous_xp: int = app.progress.xp
+	app.simulation.winner = 0
+	app.simulation.finished = true
+	app._finish_match()
+	_check(app.progress.xp - previous_xp == 134, "Reward uses starting 12% XP rather than newly equipped 25%")
 	app.progress.practice_mode = true
 	app._reset_test_session()
 	_check(not app.active and app.current_page == "MODOS" and not app.card_result.visible, "Reset cancels match, hides reveal and returns to modes")

@@ -1,17 +1,21 @@
-# Nexo Idle — protótipo v0.10
+# Nexo Idle — protótipo v0.11
 
-Abra `Jogar.cmd` para jogar ou importe `game/project.godot` no Godot para editar. O APK v0.10 reúne cartas, objetivos e painel inferior e foi exportado para Android; a instalação em aparelho físico ainda não foi validada.
+Abra `Jogar.cmd` para jogar ou importe `game/project.godot` no Godot para editar. O APK v0.11 reúne cartas com efeitos percentuais, objetivos e painel inferior e foi exportado para Android; a instalação em aparelho físico ainda não foi validada.
 
-[**Baixar APK v0.10 pelo GitHub**](https://github.com/hilariobernardo/idleoflegends/raw/refs/heads/work/builds/Nexo-Idle-0.10.apk)
+[**Baixar APK v0.11 pelo GitHub**](https://github.com/hilariobernardo/idleoflegends/raw/refs/heads/work/builds/Nexo-Idle-0.11.apk)
 
-## Cartas e evolução — v0.10
+## Cartas e evolução — v0.11
 
 A nova aba **Cartas** traz 15 cartas de raridades Normal, Rara, Épica, Lendária e Mítica. Cada abertura custa **100 Idle Points (IP)**; equipe até três cartas para ganhar bônus na próxima partida. IP vem de novas divisões, novos elos e marcos de dez vitórias. Há garantia de épica ou superior em até dez aberturas e devolução de IP por repetidas. Anúncios e pagamentos continuam planejados.
 
-**Evolução** reúne habilidades e estudos em dois grupos com blocos de duas colunas. O modo de teste começa com **300 IP**, mantém XP ilimitado e não salva a sessão. Consulte [as regras de cartas e IP](docs/CARTAS-v09.md).
+**Exemplos:** Tesouro do dragão dá +30% de dano contra Dragon/Baron; Colheita dourada dá +12% de XP ao terminar partidas; Lâmina da tempestade dá 20% de chance de crítico. Nenhuma carta concede níveis de habilidade.
+
+**Evolução** reúne habilidades e estudos em dois grupos com blocos de duas colunas. O modo de teste começa com **300 IP**, mantém XP ilimitado e não salva a sessão. Consulte [as regras de cartas e IP](docs/CARTAS-v011.md).
 
 ## Alterações recentes
 
+- v0.11: cartas agora concedem efeitos percentuais próprios, sem aumentar níveis de habilidades: XP por partida, ouro, dano contra jogadores/objetivos/estruturas, críticos, velocidade, vida, resistência e renascimento.
+- Bônus de combate e XP usam as cartas equipadas no início da partida. Trocas valem para a próxima; a coleção existente foi preservada.
 - v0.10: adicionadas 15 cartas com cinco raridades, Idle Points, até três cartas equipadas, devolução por repetidas e garantia de épica ou superior.
 - Habilidades e estudos agora formam dois grupos em grade de duas colunas, disponíveis na aba Evolução e no painel inferior durante a partida.
 - Integradas as melhorias do branch work (Dragon/Baron e velocidade 2×). APK atualizado entregue por download direto do GitHub, com a mesma orientação registrada no AGENTS.md.
@@ -82,7 +86,7 @@ Testes em `game/tests/`: progressão, economia/elos/migração, fluxo da interfa
 
 ## APK para teste Android
 
-O arquivo `builds/Nexo-Idle-0.10.apk` é uma versão de depuração para testes, compatível com Android 7.0 (API 24) ou superior em dispositivos ARM. Transfira-o ao celular, abra-o e autorize a instalação de aplicativos dessa origem se o Android solicitar. Não é uma versão para publicação na Play Store. Esta compilação usa uma nova assinatura de depuração; se houver um APK antigo instalado com outra assinatura, o Android não permitirá atualizar por cima. Desinstalar o antigo remove seus dados locais. O modo de teste atual não salva o progresso. Não foi possível testar a instalação ou a interface em aparelho físico, pois nenhum dispositivo estava conectado. Os resultados e o roteiro de teste estão em `docs/TESTE-ANDROID.md`.
+O arquivo `builds/Nexo-Idle-0.11.apk` é uma versão de depuração para testes, compatível com Android 7.0 (API 24) ou superior em dispositivos ARM. Transfira-o ao celular, abra-o e autorize a instalação de aplicativos dessa origem se o Android solicitar. Não é uma versão para publicação na Play Store. Esta compilação usa uma nova assinatura de depuração; se houver um APK antigo instalado com outra assinatura, o Android não permitirá atualizar por cima. Desinstalar o antigo remove seus dados locais. O modo de teste atual não salva o progresso. Não foi possível testar a instalação ou a interface em aparelho físico, pois nenhum dispositivo estava conectado. Os resultados e o roteiro de teste estão em `docs/TESTE-ANDROID.md`.
 
 
 

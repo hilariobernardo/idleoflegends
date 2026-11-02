@@ -80,7 +80,7 @@ func _ready() -> void:
 		progress.practice_mode = true
 	progress.load_save()
 	match_speed = 2.0 if progress.practice_mode else 1.0
-	simulation.start(progress.combat_upgrades(), 0, progress.opponent_level(), _mode_name())
+	simulation.start(progress.combat_upgrades(), 0, progress.opponent_level(), _mode_name(), progress.card_effects())
 	_build_ui()
 	_refresh_progress()
 	_refresh_match()
@@ -107,7 +107,7 @@ func _build_ui() -> void:
 	masthead.add_child(brand)
 	brand.add_child(_label("N E X O", 30, INK))
 	brand.add_child(_label("I D L E   A R E N A", 10, MINT))
-	var badge: Label = _label("TESTE  0.10" if progress.practice_mode else "PRÉVIA  0.10", 11, MUTED)
+	var badge: Label = _label("TESTE  0.11" if progress.practice_mode else "PRÉVIA  0.11", 11, MUTED)
 	badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	masthead.add_child(badge)
 	var wallet: PanelContainer = _panel(Color("142433"))
@@ -375,7 +375,7 @@ func _build_training_page(page: VBoxContainer) -> void:
 
 func _build_cards_page(page: VBoxContainer) -> void:
 	page.add_child(_label("Cartas do Nexo", 24, INK))
-	page.add_child(_wrapped("Colecione relíquias e equipe até 3 cartas. Os bônus se somam às habilidades na próxima partida.", 13, MUTED))
+	page.add_child(_wrapped("Colecione relíquias e equipe até 3 cartas. Ganhe efeitos próprios de economia e combate, sem alterar os níveis das habilidades. Valem a partir da próxima partida, inclusive o bônus de XP.", 13, MUTED))
 	var shop: PanelContainer = _panel(Color("1b233b"))
 	page.add_child(shop)
 	var stack: VBoxContainer = _column(10)
@@ -429,13 +429,13 @@ func _build_cards_page(page: VBoxContainer) -> void:
 		content.add_child(_label("%s  /  %s" % [str(rarity.name).to_upper(), definition.sigil], 11, accent))
 		var art: Control = CardArt.new()
 		art.accent = accent
-		art.skill = str(definition.skill)
+		art.skill = str(definition.icon)
 		art.rarity = int(definition.rarity)
 		content.add_child(art)
 		var name_label: Label = _wrapped(str(definition.name), 17, INK)
 		name_label.custom_minimum_size.y = 44
 		content.add_child(name_label)
-		content.add_child(_wrapped("+%d níveis de %s" % [int(definition.bonus), Progression.SKILL_LABELS[definition.skill]], 12, accent))
+		content.add_child(_wrapped(Cards.describe_effects(definition.effects), 12, accent))
 		var owned: Label = _wrapped("", 11, MUTED)
 		owned.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		content.add_child(owned)
@@ -450,9 +450,9 @@ func _open_card() -> void:
 	if not result.is_empty():
 		var card: Dictionary = result.card
 		var rarity: Dictionary = Cards.RARITIES[int(card.rarity)]
-		card_result_label.text = "%s!\n%s · %s\n+%d níveis de %s ao equipar\n%s" % [
+		card_result_label.text = "%s!\n%s · %s\n%s\n%s" % [
 			"CARTA REPETIDA" if bool(result["duplicate"]) else "NOVA CARTA",
-			card.name, rarity.name, int(card.bonus), Progression.SKILL_LABELS[card.skill],
+			card.name, rarity.name, Cards.describe_effects(card.effects),
 			"+%d IP devolvidos" % int(result.refund) if bool(result["duplicate"]) else "Já está na sua coleção. Equipe abaixo!",
 		]
 		card_result_label.add_theme_color_override("font_color", Color(str(rarity.color)))
@@ -484,6 +484,9 @@ func _refresh_cards() -> void:
 		progress.collection.size(), Cards.CARDS.size(), progress.equipped_cards.size(),
 		"Nenhuma carta equipada. Escolha até três abaixo." if names.is_empty() else "Equipadas: " + ", ".join(names),
 	]
+	var effect_summary: String = Cards.describe_effects(progress.card_effects())
+	if not effect_summary.is_empty():
+		card_summary.text += "\n\nEFEITOS NA PRÓXIMA PARTIDA\n" + effect_summary
 	for card: Dictionary in Cards.CARDS:
 		var id: String = str(card.id)
 		var owned: bool = progress.collection.has(id)
@@ -562,7 +565,7 @@ func _start_match() -> void:
 		return
 	restart_remaining = -1
 	match_mode = progress.selected_mode
-	simulation.start(progress.combat_upgrades(), 0, progress.opponent_level(match_mode), _mode_name())
+	simulation.start(progress.combat_upgrades(), 0, progress.opponent_level(match_mode), _mode_name(), progress.card_effects())
 	active = true
 	paused = false
 	arena.running = true
@@ -583,7 +586,7 @@ func _finish_match() -> void:
 	var won: bool = simulation.winner == 0
 	var previous_points: int = int(progress.ladders[match_mode])
 	var previous_rank: String = progress.rank_name(match_mode)
-	var reward: int = progress.record_match(won, match_mode)
+	var reward: int = progress.record_match(won, match_mode, simulation.card_effects)
 	var point_change: int = int(progress.ladders[match_mode]) - previous_points
 	status_label.text = ("Vitória!" if won else "Derrota. O treino continua.") + "  +%s XP" % Numbers.compact(reward)
 	status_label.add_theme_color_override("font_color", MINT if won else GOLD)
@@ -624,8 +627,7 @@ func _refresh_progress() -> void:
 	for key: String in Progression.SKILL_ORDER:
 		var level: int = int(progress.upgrades[key])
 		var cost: int = progress.upgrade_cost(key)
-		var bonus: int = int(progress.combat_upgrades()[key]) - level
-		skill_labels[key].text = "NÍVEL %d / 20" % level + ("\n+%d pelas cartas" % bonus if bonus > 0 else "")
+		skill_labels[key].text = "NÍVEL %d / 20" % level
 		skill_buttons[key].text = "NÍVEL MÁXIMO" if level >= 20 else "MELHORAR\n%s XP" % Numbers.compact(cost)
 		skill_buttons[key].tooltip_text = "%d XP" % cost if cost >= 0 else "Nível máximo"
 		skill_buttons[key].disabled = level >= 20 or not progress.can_afford(cost)
@@ -636,7 +638,7 @@ func _refresh_progress() -> void:
 	if int(progress.ladders[progress.selected_mode]) == progress.ladder_cap():
 		rank_label.text = "%s · TOPO DA ESCALADA" % progress.rank_name()
 		rank_bar.value = 100
-	rank_detail.text = "+25 vitória / −25 derrota · Vitória: %s XP\nRivais: nível %.1f · Quanto maior o elo, maior o desafio." % [Numbers.compact(progress.victory_reward()), progress.opponent_level()]
+	rank_detail.text = "+25 vitória / −25 derrota · Vitória: %s XP\nRivais: nível %.1f · Quanto maior o elo, maior o desafio." % [Numbers.compact(progress.match_reward(true, "", simulation.card_effects if active else progress.card_effects())), progress.opponent_level()]
 	training_label.text = "%s XP/s  ·  Até %s XP em 2 horas" % [Numbers.compact(progress.training_rate()), Numbers.compact(progress.training_rate() * Progression.TRAINING_CAP_HOURS * 3600)]
 	for key: String in Progression.TRAINING_ORDER:
 		var level: int = int(progress.training_levels[key])
@@ -679,7 +681,7 @@ func _reset_test_session() -> void:
 	mode_chosen = false
 	match_mode = "normal"
 	auto_button.set_pressed_no_signal(false)
-	simulation.start(progress.combat_upgrades(), 0, progress.opponent_level(), _mode_name())
+	simulation.start(progress.combat_upgrades(), 0, progress.opponent_level(), _mode_name(), progress.card_effects())
 	arena.running = false
 	start_button.disabled = false
 	pause_button.disabled = true
@@ -709,7 +711,7 @@ func _choose_mode(mode: String) -> void:
 		mode_chosen = true
 		restart_remaining = -1.0
 		auto_button.button_pressed = false
-		simulation.start(progress.combat_upgrades(), 0, progress.opponent_level(), _mode_name())
+		simulation.start(progress.combat_upgrades(), 0, progress.opponent_level(), _mode_name(), progress.card_effects())
 		status_label.text = "Sua próxima vitória começa aqui."
 		detail_label.text = "Melhore suas habilidades para acompanhar a força dos rivais."
 		_show_page("PARTIDA")

@@ -210,13 +210,14 @@ func buy_upgrade(key: String) -> bool:
 	return true
 
 
-func record_match(won: bool, mode: String = "") -> int:
+func record_match(won: bool, mode: String = "", match_effects: Dictionary = {}) -> int:
 	last_ip_reward = 0
 	var actual_mode: String = _mode(mode)
 	if _write_blocked or not _mode_available(actual_mode):
 		return 0
 	var previous: Dictionary = _snapshot()
-	var reward: int = victory_reward(actual_mode) if won else (105 if actual_mode == "ranked" else 70)
+	# The caller passes the effects frozen at match start, never the current equipment.
+	var reward: int = match_reward(won, actual_mode, match_effects)
 	reward = _credit_xp(reward)
 	matches = mini(MAX_COUNTER, matches + 1)
 	if won:
@@ -287,11 +288,17 @@ func toggle_card(id: String) -> bool:
 
 
 func combat_upgrades() -> Dictionary:
-	var result: Dictionary = upgrades.duplicate(true)
-	for id: String in equipped_cards:
-		var card: Dictionary = Cards.find_card(id)
-		result[card.skill] = int(result[card.skill]) + int(card.bonus)
-	return result
+	return upgrades.duplicate(true)
+
+
+func card_effects() -> Dictionary:
+	return Cards.equipped_effects(equipped_cards)
+
+
+func match_reward(won: bool, mode: String = "", effects: Dictionary = {}) -> int:
+	var base: int = victory_reward(mode) if won else (105 if _mode(mode) == "ranked" else 70)
+	var bonus: int = int(Cards.sanitize_effects(effects).get("match_xp", 0))
+	return int(round(float(base) * (1.0 + float(bonus) / 100.0)))
 
 
 func rank_division(mode: String = "") -> int:

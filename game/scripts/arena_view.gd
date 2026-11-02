@@ -44,7 +44,7 @@ func _draw() -> void:
 		draw_arc(p, 24, 0, TAU, 40, Color(color, .45), 1.5, true)
 		var diamond: PackedVector2Array = PackedVector2Array([p+Vector2(0,-14),p+Vector2(12,0),p+Vector2(0,14),p+Vector2(-12,0)])
 		draw_colored_polygon(diamond, color)
-		_health(p + Vector2(0, 30), float(simulation.base_hp[team]) / 1000.0, color, 40)
+		_health(p + Vector2(0, 30), float(simulation.base_hp[team]) / float(simulation.base_max_hp[team]), color, 40)
 	for tower: Dictionary in simulation.towers:
 		var p: Vector2 = _point(tower.position)
 		var color: Color = BLUE if int(tower.team) == 0 else RED

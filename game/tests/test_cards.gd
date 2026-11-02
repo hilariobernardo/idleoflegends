@@ -2,6 +2,7 @@ extends SceneTree
 
 const Progression = preload("res://scripts/progression.gd")
 const Cards = preload("res://scripts/card_catalog.gd")
+const Simulation = preload("res://scripts/match_sim.gd")
 const SAVE_PATH: String = "res://tests/tmp_cards.json"
 var failures: int = 0
 var checks: int = 0
@@ -10,6 +11,7 @@ func _initialize() -> void:
 	_cleanup()
 	_rewards()
 	_draws_and_equipment()
+	_percentage_effects()
 	_persistence_and_rollback()
 	_practice_reset()
 	_cleanup()
@@ -72,11 +74,11 @@ func _draws_and_equipment() -> void:
 	_check(int(p.collection[result.card.id]) == 2, "Duplicate count is recorded")
 	_check(p.toggle_card("blade") and p.toggle_card("duelist") and p.toggle_card("storm"), "Three distinct cards can be equipped")
 	_check(not p.toggle_card("coin") and not p.toggle_card("missing"), "Fourth and unknown cards are rejected")
-	_check(p.combat_upgrades().trades == 8 and p.upgrades.trades == 0, "Bonuses stack without changing purchased levels")
+	_check(p.combat_upgrades() == p.upgrades and p.card_effects() == {"champion_damage": 6, "attack_speed": 12, "crit_chance": 20}, "Cards provide distinct effects without skill levels")
 	p.collection.blade = 100
-	_check(p.combat_upgrades().trades == 8, "Duplicate copies do not multiply combat bonuses")
+	_check(p.card_effects().champion_damage == 6, "Duplicate copies do not multiply effects")
 	_check(p.toggle_card("blade") and p.toggle_card("coin"), "Removing a card frees a slot")
-	_check(p.combat_upgrades().trades == 7 and p.combat_upgrades().farm == 1, "Changing equipment updates the effective skills")
+	_check(not p.card_effects().has("champion_damage") and p.card_effects().gold_gain == 8 and p.combat_upgrades() == p.upgrades, "Equipment changes effects, never skills")
 	# Deterministic samples exercise both ordinary draws and the guaranteed pool.
 	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 	rng.seed = 2026
@@ -87,6 +89,105 @@ func _draws_and_equipment() -> void:
 		_check(not Cards.find_card(str(card.id)).is_empty(), "Draw belongs to catalog")
 		_check(int(Cards.draw(rng, true).rarity) >= 2, "Guaranteed pool excludes normal and rare")
 	_check(seen.size() == 5, "All five rarities are reachable")
+
+func _sim(effects: Dictionary = {}):
+	var sim = Simulation.new()
+	sim.start({"farm": 0, "trades": 0, "builds": 0, "macro": 0, "vision": 0}, 2026, 0.0, "Normal", effects)
+	return sim
+
+func _duel(effects: Dictionary = {}):
+	var sim = _sim(effects)
+	for unit: Dictionary in sim.units:
+		unit.alive = int(unit.id) in [0, 5]
+		unit.respawn_left = 999.0
+		unit.cooldown = 0.0
+	sim.units[0].progress = 0.5
+	sim.units[5].progress = 0.51
+	sim.advance(0.1)
+	return sim
+
+func _monster_hit(sim, key: String) -> float:
+	var unit: Dictionary = sim.units[0]
+	unit.objective = key
+	unit.position = sim.objectives[key].position
+	unit.cooldown = 0.0
+	var damage: Array[float] = []
+	damage.resize(10)
+	damage.fill(0.0)
+	var monster_damage: Dictionary = {"dragon": [0.0, 0.0], "baron": [0.0, 0.0]}
+	sim._attack_objective(unit, damage, monster_damage)
+	return float(monster_damage[key][0])
+
+func _percentage_effects() -> void:
+	var p = _fresh()
+	for card: Dictionary in Cards.CARDS:
+		p.collection[card.id] = 1
+		_check(not card.has("bonus") and not card.has("skill") and not Cards.describe_effects(card.effects).is_empty(), "Every card has independent described effects")
+	p.equipped_cards.assign(["coin", "crown", "eternal"])
+	_check(p.card_effects() == {"gold_gain": 28, "match_xp": 35, "respawn_reduction": 10}, "Matching percentages add across distinct cards")
+	var frozen: Dictionary = p.card_effects()
+	p.toggle_card("eternal")
+	_check(p.record_match(true, "normal", frozen) == 162, "Victory XP uses the starting loadout (120 + 35%)")
+	_check(p.record_match(false, "normal", frozen) == 95, "Defeat XP also gets the frozen bonus with rounding")
+	_check(p.idle_points == 0, "XP cards do not inflate IP")
+	var base = _sim()
+	var richer = _sim({"gold_gain": 28, "movement_speed": 10})
+	base.advance(1.0)
+	richer.advance(1.0)
+	_check(is_equal_approx(richer.units[0].gold, base.units[0].gold * 1.28), "Lane farming gains 28% more gold")
+	_check(is_equal_approx(richer.units[5].gold, base.units[5].gold), "Enemy gold stays unchanged")
+	_check(is_equal_approx(richer.units[0].progress - 0.04, (base.units[0].progress - 0.04) * 1.1), "Movement effect advances the team 10% faster")
+	_check(is_equal_approx(richer.units[5].progress, base.units[5].progress), "Enemy movement stays unchanged")
+	richer._grant_team_gold(0, 12.0)
+	_check(is_equal_approx(richer.units[0].gold, base.units[0].gold * 1.28 + 15.36), "Kill/structure gold grants also receive the bonus")
+	var jungler: Dictionary = richer.units[1]
+	var before: float = jungler.gold
+	jungler.route = PackedVector2Array()
+	jungler.route_index = 0
+	jungler.camp_timer = Simulation.CAMP_CLEAR_SECONDS
+	richer._advance_jungle(jungler)
+	_check(is_equal_approx(jungler.gold - before, 18.0 * 1.28), "Jungle camp gold receives the bonus")
+	var healthy = _sim({"max_health": 12, "base_health": 25, "respawn_reduction": 15})
+	_check(is_equal_approx(healthy.units[0].max_hp, 145.6) and healthy.units[5].max_hp == 130.0, "Player health increases only on the allied team")
+	_check(healthy.base_hp[0] == 1250.0 and healthy.base_max_hp[0] == 1250.0 and healthy.base_hp[1] == 1000.0, "Nexus health and its health bar denominator grow together")
+	_check(is_equal_approx(healthy._score(0), healthy._score(1)), "Extra nexus health does not grant unearned tiebreak points")
+	healthy._defeat(healthy.units[0])
+	_check(is_equal_approx(healthy.units[0].respawn_left, 5.1), "Respawn takes 15% less time")
+	healthy._respawn(healthy.units[0])
+	_check(is_equal_approx(healthy.units[0].hp, 145.6), "Respawn restores boosted maximum health")
+	var ordinary = _duel()
+	var empowered = _duel({"champion_damage": 6, "damage_reduction": 5, "attack_speed": 12})
+	_check(is_equal_approx(130.0 - empowered.units[5].hp, (130.0 - ordinary.units[5].hp) * 1.06), "Damage against players is 6% higher")
+	_check(is_equal_approx(130.0 - empowered.units[0].hp, (130.0 - ordinary.units[0].hp) * 0.95), "Incoming player damage is reduced by 5%")
+	_check(is_equal_approx(empowered.units[0].cooldown, 0.85 / 1.12), "Actual attacks use the shorter attack interval")
+	var normal_objectives = _sim()
+	var hunter = _sim({"objective_damage": 50})
+	for key: String in ["dragon", "baron"]:
+		_check(is_equal_approx(_monster_hit(hunter, key), _monster_hit(normal_objectives, key) * 1.5), "Objective damage increases against " + key)
+	var no_player_bonus = _duel({"objective_damage": 50})
+	_check(is_equal_approx(no_player_bonus.units[5].hp, ordinary.units[5].hp), "Objective-only bonus does not increase player damage")
+	var sieger = _sim({"structure_damage": 45})
+	for sim in [base, sieger]:
+		for unit: Dictionary in sim.units:
+			unit.alive = int(unit.id) == 0
+			unit.respawn_left = 999.0
+		sim.units[0].progress = 0.71
+		sim.units[0].cooldown = 0.0
+		sim.units[0].gold = 0.0
+		sim._rng.seed = 42
+		sim.advance(0.1)
+	_check(is_equal_approx(260.0 - sieger.towers[3].hp, (260.0 - base.towers[3].hp) * 1.45), "Structure damage increases actual tower damage")
+	sieger.baron_until[0] = 20.0
+	_check(is_equal_approx(sieger._structure_bonus(0), 1.45 * 1.3), "Card and Baron bonuses compose independently")
+	var critical = _sim({"crit_chance": 100})
+	var plain = _sim()
+	_check(is_equal_approx(critical._attack_damage(critical.units[0]), plain._attack_damage(plain.units[0]) * 1.5), "A critical attack deals 50% extra damage")
+	var source: Dictionary = {"gold_gain": 20}
+	var isolated = _sim(source)
+	source.gold_gain = 90
+	_check(isolated.card_effects.gold_gain == 20, "Match effects are isolated from later equipment edits")
+	isolated.start(p.combat_upgrades(), 2026)
+	_check(isolated.card_effects.is_empty() and isolated.base_hp[0] == 1000.0, "Starting a new match clears old card effects")
 
 func _persistence_and_rollback() -> void:
 	var p = _fresh()
