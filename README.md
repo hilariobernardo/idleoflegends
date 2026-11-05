@@ -2,7 +2,7 @@
 
 Abra `Jogar.cmd` para jogar ou importe `game/project.godot` no Godot para editar. O APK v0.11 reúne cartas com efeitos percentuais, objetivos e painel inferior e foi exportado para Android; a instalação em aparelho físico ainda não foi validada.
 
-No Windows, extraia a pasta completa e abra **Jogar.cmd**. O atalho procura um Godot 4.5 ou superior no PATH, na pasta do projeto e em `.tools/godot`. Se nao encontrar, baixa o **Godot 4.6.3 portatil oficial** (a versao usada na validacao deste projeto), confere o SHA256, prepara a imagem do mapa e inicia o jogo. A primeira abertura precisa de internet e baixa cerca de 80 MB; as seguintes reutilizam a copia local, sem administrador nem alteracao do PATH. Voce tambem pode indicar um executavel com `Jogar.cmd -GodotPath "C:\caminho\Godot.exe"`. O motor e os logs ficam em `.tools/`, fora do Git.
+No Windows, extraia a pasta completa e abra **Jogar.cmd**. O atalho procura um Godot 4.5 ou superior já instalado no PATH, na pasta do projeto ou em `.tools/godot`, prepara os recursos e inicia o jogo. Ele não baixa nem instala o Godot. Cópias preparadas pelo atalho anterior continuam sendo reutilizadas. Você também pode indicar um executável com `Jogar.cmd -GodotPath "C:\caminho\Godot.exe"`. Os logs ficam em `.tools/`, fora do Git. Veja abaixo como instalar o Godot uma única vez no Windows.
 
 [**Baixar APK v0.11 pelo GitHub**](https://github.com/hilariobernardo/idleoflegends/raw/refs/heads/work/builds/Nexo-Idle-0.11.apk)
 
@@ -20,6 +20,7 @@ Cada carta começa no **nível 1** e cada repetida aumenta **1 nível, até o 5*
 
 ## Alterações recentes
 
+- Windows/Ponytail: removido o download/instalador automático do Godot; o atalho reutiliza instalações existentes e mantém a importação dos recursos. Instalação única no Windows documentada via WinGet. Adicionada a skill Ponytail oficial ao projeto, com licença MIT; sem mudanças na lógica do jogo nem novo APK.
 - Corrigido `Jogar.cmd`: detecta Godot portatil/fora do PATH ou baixa uma copia oficial verificada por SHA256, sem administrador. Importa recursos antes de abrir para evitar erro de textura do mapa em clones novos. Versoes Windows x64, x86 e ARM64 contempladas; nao altera o progresso do jogo.
 - Recuperadas as mudanças de animação e níveis; adicionadas cinco estrelinhas abaixo das cartas na coleção e na revelação. Testes de cartas e interface cobrem evolução, exclusão de cartas no máximo, virada completa, pular, bloqueio de compras e reinício durante a animação.
 - Configuração do projeto: a skill `game-dev` passou a ser obrigatória para toda criação, implementação, correção, refatoração ou modificação do jogo.
@@ -105,8 +106,24 @@ O arquivo `builds/Nexo-Idle-0.11.apk` é uma versão de depuração para testes,
 
 ## Usar este repositorio em outro computador
 
-No Windows, clone ou baixe este repositorio, extraia a pasta completa e abra `Jogar.cmd`: o atalho prepara automaticamente o Godot portatil se necessario. Para editar, importe `game/project.godot` no Godot 4.5 ou superior e pressione F5 para executar o projeto. No Linux e macOS, instale o Godot e use `godot --path game`. A validacao automatizada foi feita com Godot 4.6.3.
+No Windows, se o Godot já estiver instalado, reutilize essa instalação. Se precisar instalar, execute uma vez no PowerShell:
+
+```powershell
+winget install --exact --id GodotEngine.GodotEngine --version 4.6.3
+```
+
+Feche e reabra o terminal após a instalação para atualizar o PATH; confirme com `godot --version`. O pacote WinGet cria o comando `godot` e instala o editor fora do repositório, permitindo reutilizá-lo em outros projetos. O comando acima foi conferido no manifesto oficial do WinGet para a versão 4.6.3, mas não foi executado no seu computador por esta sessão na nuvem.
+
+Se o WinGet não estiver disponível, baixe o editor padrão para a arquitetura do seu Windows na [release oficial Godot 4.6.3](https://github.com/godotengine/godot/releases/tag/4.6.3-stable), extraia em uma pasta permanente e indique o executável com `Jogar.cmd -GodotPath "C:\caminho\Godot.exe"`.
+
+Clone ou baixe este repositório, extraia a pasta completa e abra `Jogar.cmd`. Se o editor não for encontrado, o atalho informa como instalá-lo, sem fazer downloads. Para editar, importe `game/project.godot` no Godot 4.5 ou superior e pressione F5. No Linux e macOS, instale o Godot e use `godot --path game`. A validação anterior do jogo foi feita com Godot 4.6.3.
 
 O ambiente Codex pode editar os arquivos clonados. A interface grafica do jogo exige um computador com Godot e suporte grafico; conectar o repositorio nao instala automaticamente o editor. Ferramentas locais Android, APK antigo e capturas nao foram incluidos no repositorio. As referencias historicas a esses arquivos descrevem o computador original.
 
-Verificacao do novo atalho: sintaxe de `scripts/jogar.ps1` conferida pelo parser do PowerShell 7.6.9; os tres nomes de arquivos e SHA256 foram comparados com os assets oficiais da release Godot 4.6.3. A execucao do atalho no Windows ainda precisa ser conferida no computador do jogador, pois esta sessao executa Linux.
+Nesta alteração foi feita revisão estática do atalho e conferência do diff. Testes não foram executados, conforme a orientação do projeto. A execução no Windows ainda precisa ser conferida no computador do jogador, pois esta sessão executa Linux.
+
+## Ponytail para desenvolvimento
+
+A [skill Ponytail](.agents/skills/ponytail/SKILL.md) está instalada no projeto e referenciada no `AGENTS.md`. Ela orienta o assistente a entender o fluxo existente, reutilizar recursos e evitar código e dependências desnecessários. A simplificação aplicada ao atalho removeu o instalador embutido; não há promessa de ganho de FPS nem alteração da lógica do jogo.
+
+Origem: [DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail/tree/96608e078b2d5ea607c5c3b8b5a54d1c1fba6846), revisão `96608e0`, com [licença MIT](.agents/skills/ponytail/LICENSE). Esta integração usa a skill local; comandos e hooks do plugin completo não foram instalados. As regras existentes do projeto, incluindo a política de testes, continuam valendo.
