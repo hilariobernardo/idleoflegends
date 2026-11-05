@@ -2,6 +2,8 @@
 
 Abra `Jogar.cmd` para jogar ou importe `game/project.godot` no Godot para editar. O APK v0.11 reúne cartas com efeitos percentuais, objetivos e painel inferior e foi exportado para Android; a instalação em aparelho físico ainda não foi validada.
 
+No Windows, extraia a pasta completa e abra **Jogar.cmd**. O atalho procura um Godot 4.5 ou superior no PATH, na pasta do projeto e em `.tools/godot`. Se nao encontrar, baixa o **Godot 4.6.3 portatil oficial** (a versao usada na validacao deste projeto), confere o SHA256, prepara a imagem do mapa e inicia o jogo. A primeira abertura precisa de internet e baixa cerca de 80 MB; as seguintes reutilizam a copia local, sem administrador nem alteracao do PATH. Voce tambem pode indicar um executavel com `Jogar.cmd -GodotPath "C:\caminho\Godot.exe"`. O motor e os logs ficam em `.tools/`, fora do Git.
+
 [**Baixar APK v0.11 pelo GitHub**](https://github.com/hilariobernardo/idleoflegends/raw/refs/heads/work/builds/Nexo-Idle-0.11.apk)
 
 O código-fonte já inclui a animação de compra e a evolução das cartas descritas abaixo. O APK v0.11 acima é anterior a essas mudanças; nenhum novo APK foi gerado nesta etapa.
@@ -18,6 +20,7 @@ Cada carta começa no **nível 1** e cada repetida aumenta **1 nível, até o 5*
 
 ## Alterações recentes
 
+- Corrigido `Jogar.cmd`: detecta Godot portatil/fora do PATH ou baixa uma copia oficial verificada por SHA256, sem administrador. Importa recursos antes de abrir para evitar erro de textura do mapa em clones novos. Versoes Windows x64, x86 e ARM64 contempladas; nao altera o progresso do jogo.
 - Recuperadas as mudanças de animação e níveis; adicionadas cinco estrelinhas abaixo das cartas na coleção e na revelação. Testes de cartas e interface cobrem evolução, exclusão de cartas no máximo, virada completa, pular, bloqueio de compras e reinício durante a animação.
 - Configuração do projeto: a skill `game-dev` passou a ser obrigatória para toda criação, implementação, correção, refatoração ou modificação do jogo.
 - Cartas evoluem do nível 1 ao 5 com repetidas, fortalecendo seus bônus; cartas no máximo são substituídas no sorteio e a coleção completa bloqueia compras sem gastar IP. Cópias antigas viram níveis, preservando equipamentos e saldo.
@@ -102,6 +105,8 @@ O arquivo `builds/Nexo-Idle-0.11.apk` é uma versão de depuração para testes,
 
 ## Usar este repositorio em outro computador
 
-Instale Godot 4.7.2, clone este repositorio e importe `game/project.godot`. Pressione F6/F5 no editor para executar a cena/projeto. Com o comando `godot` no PATH, use `godot --path game` ou `Jogar.cmd` no Windows. O mesmo projeto funciona no editor para Windows, Linux e macOS.
+No Windows, clone ou baixe este repositorio, extraia a pasta completa e abra `Jogar.cmd`: o atalho prepara automaticamente o Godot portatil se necessario. Para editar, importe `game/project.godot` no Godot 4.5 ou superior e pressione F5 para executar o projeto. No Linux e macOS, instale o Godot e use `godot --path game`. A validacao automatizada foi feita com Godot 4.6.3.
 
 O ambiente Codex pode editar os arquivos clonados. A interface grafica do jogo exige um computador com Godot e suporte grafico; conectar o repositorio nao instala automaticamente o editor. Ferramentas locais Android, APK antigo e capturas nao foram incluidos no repositorio. As referencias historicas a esses arquivos descrevem o computador original.
+
+Verificacao do novo atalho: sintaxe de `scripts/jogar.ps1` conferida pelo parser do PowerShell 7.6.9; os tres nomes de arquivos e SHA256 foram comparados com os assets oficiais da release Godot 4.6.3. A execucao do atalho no Windows ainda precisa ser conferida no computador do jogador, pois esta sessao executa Linux.
