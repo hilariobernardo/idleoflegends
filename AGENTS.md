@@ -12,6 +12,7 @@ Navigation generation: scripts/build_navigation.py (Python, Pillow, NumPy), run 
 
 ## Histórico de alterações
 
+- Cartas: recuperada animação de abertura com virada/brilho por raridade e opção de pular; repetidas evoluem do nível 1 ao 5, com cinco estrelinhas abaixo da carta na coleção e na revelação. Cada nível acrescenta 25% do bônus base. Cartas no máximo saem do sorteio; coleção completa bloqueia compra sem gasto. Save v6 converte cópias antigas em níveis. Cobertura nos testes de cartas e interface; APK v0.11 permanece anterior às mudanças.
 - Configuração: a skill `game-dev` passou a ser obrigatória para toda criação, implementação, correção, refatoração ou modificação do jogo.
 - v0.11: cartas passaram a ter efeitos percentuais próprios (XP por partida, ouro, dano específico, crítico, velocidade, resistência, vida e renascimento), sem conceder níveis de habilidades. Efeitos e recompensa de XP são fixados no início da partida; coleção existente preservada.
 - v0.10: cartas gacha com cinco raridades, Idle Points, três equipamentos, devolução por repetidas e garantia de épica; habilidades e estudos em duas colunas, também no painel inferior da partida.

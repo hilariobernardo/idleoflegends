@@ -4,17 +4,24 @@ Abra `Jogar.cmd` para jogar ou importe `game/project.godot` no Godot para editar
 
 [**Baixar APK v0.11 pelo GitHub**](https://github.com/hilariobernardo/idleoflegends/raw/refs/heads/work/builds/Nexo-Idle-0.11.apk)
 
-## Cartas e evolução — v0.11
+O código-fonte já inclui a animação de compra e a evolução das cartas descritas abaixo. O APK v0.11 acima é anterior a essas mudanças; nenhum novo APK foi gerado nesta etapa.
 
-A nova aba **Cartas** traz 15 cartas de raridades Normal, Rara, Épica, Lendária e Mítica. Cada abertura custa **100 Idle Points (IP)**; equipe até três cartas para ganhar bônus na próxima partida. IP vem de novas divisões, novos elos e marcos de dez vitórias. Há garantia de épica ou superior em até dez aberturas e devolução de IP por repetidas. Anúncios e pagamentos continuam planejados.
+## Cartas e evolução
 
-**Exemplos:** Tesouro do dragão dá +30% de dano contra Dragon/Baron; Colheita dourada dá +12% de XP ao terminar partidas; Lâmina da tempestade dá 20% de chance de crítico. Nenhuma carta concede níveis de habilidade.
+A aba **Cartas** traz 15 cartas de raridades Normal, Rara, Épica, Lendária e Mítica. Cada abertura custa **100 Idle Points (IP)** e revela a carta com animação, brilho da raridade e opção de pular. Equipe até três cartas para ganhar bônus na próxima partida. IP vem de novas divisões, novos elos e marcos de dez vitórias. Há garantia de épica ou superior em até dez aberturas enquanto houver cartas dessas raridades abaixo do máximo. Anúncios e pagamentos continuam planejados.
 
-**Evolução** reúne habilidades e estudos em dois grupos com blocos de duas colunas. O modo de teste começa com **300 IP**, mantém XP ilimitado e não salva a sessão. Consulte [as regras de cartas e IP](docs/CARTAS-v011.md).
+Cada carta começa no **nível 1** e cada repetida aumenta **1 nível, até o 5**, sem devolução de IP. Cinco estrelinhas abaixo da carta indicam o nível na coleção e na revelação: uma dourada por nível e as demais apagadas. Cada nível acrescenta 25% do bônus inicial, até dobrá-lo no nível máximo, com arredondamento para porcentagens inteiras. Cartas no máximo saem do sorteio: você recebe outra carta que ainda possa evoluir. Quando todas estiverem no máximo, a compra é bloqueada sem cobrar IP. A coleção mostra o nível, o bônus atual e o próximo.
+
+**Exemplos no nível 1:** Tesouro do dragão dá +30% de dano contra Dragon/Baron; Colheita dourada dá +12% de XP ao terminar partidas; Lâmina da tempestade dá 20% de chance de crítico. No nível 5, esses valores são +60%, +24% e 40%. Nenhuma carta concede níveis de habilidade.
+
+**Evolução** reúne habilidades e estudos em dois grupos com blocos de duas colunas. O modo de teste começa com **300 IP**, mantém XP ilimitado e não salva a sessão. Consulte [as regras de níveis, sorteio e animação](docs/CARTAS-NIVEIS.md) e [os efeitos de cada carta](docs/CARTAS-v011.md).
 
 ## Alterações recentes
 
+- Recuperadas as mudanças de animação e níveis; adicionadas cinco estrelinhas abaixo das cartas na coleção e na revelação. Testes de cartas e interface cobrem evolução, exclusão de cartas no máximo, virada completa, pular, bloqueio de compras e reinício durante a animação.
 - Configuração do projeto: a skill `game-dev` passou a ser obrigatória para toda criação, implementação, correção, refatoração ou modificação do jogo.
+- Cartas evoluem do nível 1 ao 5 com repetidas, fortalecendo seus bônus; cartas no máximo são substituídas no sorteio e a coleção completa bloqueia compras sem gastar IP. Cópias antigas viram níveis, preservando equipamentos e saldo.
+- Compra de cartas ganhou animação de invocação e virada, brilho por raridade, destaque de subida de nível e opção de pular; toques repetidos não compram durante a revelação. Coleção mostra níveis e bônus atuais/próximos. Alterações apenas no código-fonte, sem novo APK.
 - v0.11: cartas agora concedem efeitos percentuais próprios, sem aumentar níveis de habilidades: XP por partida, ouro, dano contra jogadores/objetivos/estruturas, críticos, velocidade, vida, resistência e renascimento.
 - Bônus de combate e XP usam as cartas equipadas no início da partida. Trocas valem para a próxima; a coleção existente foi preservada.
 - v0.10: adicionadas 15 cartas com cinco raridades, Idle Points, até três cartas equipadas, devolução por repetidas e garantia de épica ou superior.
@@ -81,7 +88,7 @@ Ranked exige **Barro IV no Normal + 10.000 XP** para desbloqueio permanente. Vit
 
 ## Progresso e testes
 
-`user://progress.json` usa formato v5, com carteira IP, coleção, equipamentos e garantia de cartas. Saves v1–v4 continuam aceitos. XP, habilidades, níveis dos estudos, pontos e desbloqueios existentes são preservados; os nomes dos elos mudam conforme o modo. Na migração v3, o tempo pendente é pago na taxa linear anterior antes de ativar a curva exponencial. v2 usa a taxa antiga por hora; v1 inicia o treino sem renda retroativa. Relógio local, limite offline e proteção contra recompensa duplicada continuam ativos.
+`user://progress.json` usa formato v6, com carteira IP, níveis das cartas, equipamentos e garantia. Saves v1–v5 continuam aceitos; as quantidades de cartas do v5 viram níveis, limitados a 5, sem perder cartas descobertas, equipamentos ou IP. XP, habilidades, níveis dos estudos, pontos e desbloqueios existentes são preservados; os nomes dos elos mudam conforme o modo. Na migração v3, o tempo pendente é pago na taxa linear anterior antes de ativar a curva exponencial. v2 usa a taxa antiga por hora; v1 inicia o treino sem renda retroativa. Relógio local, limite offline e proteção contra recompensa duplicada continuam ativos.
 
 Testes em `game/tests/`: progressão, economia/elos/migração, fluxo da interface e simulação. Referências sincronizadas em `sources/` são somente leitura.
 

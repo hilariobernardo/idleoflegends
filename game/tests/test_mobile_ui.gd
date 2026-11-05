@@ -1,6 +1,7 @@
 extends SceneTree
 const Scene = preload("res://scenes/main.tscn")
 var failures: int = 0
+var checks: int = 0
 var app
 
 func _initialize() -> void:
@@ -91,11 +92,44 @@ func _run() -> void:
 	app.card_open_button.pressed.emit()
 	await _frames()
 	_check(app.progress.idle_points == 200 and app.progress.collection.size() == 1, "Open button purchases one card")
+	_check(app.card_opening and app.card_reveal.visible and app.card_open_button.disabled, "Purchase presents a modal and blocks further purchases")
+	app._open_card()
+	_check(app.progress.idle_points == 200, "Repeated activation during reveal cannot charge again")
+	app.card_reveal._advance()
+	_check(app.card_reveal._revealed and app.progress.idle_points == 200, "Skipping reveals the saved reward without another charge")
+	app.card_reveal._advance()
 	_check(app.card_result.visible and app.card_result_label.text.contains("NOVA CARTA"), "Purchased card is revealed")
+	_check(not app.card_opening and not app.card_reveal.visible, "Continue closes the modal and restores the collection")
 	var id: String = str(app.progress.collection.keys()[0])
+	_check(app.card_stars[id].level == 1 and app.card_reveal._stars.level == 1, "New card displays one star in collection and reveal")
+	_check(app.card_result_label.text.contains("Nível 1/5"), "Card reveal shows its own upgrade level")
+	for definition: Dictionary in app.Cards.CARDS:
+		if not app.progress.collection.has(definition.id):
+			_check(app.card_stars[definition.id].level == 0, "Undiscovered cards have no lit stars")
+	var original_collection: Dictionary = app.progress.collection.duplicate(true)
+	for definition: Dictionary in app.Cards.CARDS:
+		app.progress.collection[definition.id] = app.Cards.MAX_CARD_LEVEL
+	app.progress.collection.blade = 4
+	app._refresh_progress()
+	app._open_card()
+	await app.card_reveal._tween.finished
+	_check(app.card_reveal._revealed and app.card_reveal._front.visible and not app.card_reveal._back.visible, "Full animation turns the card without skipping")
+	_check(app.card_reveal._title.text == "SUBIU DE NÍVEL!" and app.card_reveal._stars.level == 5 and app.card_stars.blade.level == 5, "Duplicate upgrades from four to five stars in both views")
+	for dimensions: Vector2i in [Vector2i(320,568), Vector2i(540,960), Vector2i(540,1260), Vector2i(768,1024)]:
+		root.size = dimensions
+		await _frames()
+		var face_rect: Rect2 = app.card_reveal._front.get_global_rect()
+		var action_rect: Rect2 = app.card_reveal._action.get_global_rect()
+		_check(face_rect.position.x >= 0 and face_rect.end.x <= app.size.x + 1 and face_rect.position.y >= 0 and face_rect.end.y <= app.size.y + 1, "Revealed card fits viewport %s" % dimensions)
+		_check(action_rect.end.y <= app.size.y + 1 and action_rect.end.x <= app.size.x + 1, "Continue fits viewport %s" % dimensions)
+	app.card_reveal._advance()
+	_check(app.card_open_button.disabled and app.card_open_button.text == "COLEÇÃO NO NÍVEL MÁXIMO", "Maxed collection disables further purchases")
+	app._open_card()
+	_check(app.progress.idle_points == 100 and not app.card_opening, "Maxed collection neither charges nor starts a reveal")
+	app.progress.collection = original_collection
+	app._refresh_progress()
 	app.card_buttons[id].pressed.emit()
 	_check(app.progress.equipped_cards.has(id) and app.card_buttons[id].text == "REMOVER", "Equip button updates collection and label")
-	_check(not app.card_result_label.text.contains("níveis"), "Card reveal describes effects instead of skill levels")
 	app.card_buttons[id].pressed.emit()
 	app.progress.collection["harvest"] = 1
 	app._refresh_progress()
@@ -117,14 +151,18 @@ func _run() -> void:
 	app._finish_match()
 	_check(app.progress.xp - previous_xp == 134, "Reward uses starting 12% XP rather than newly equipped 25%")
 	app.progress.practice_mode = true
+	app.progress.idle_points = 300
+	app._open_card()
+	_check(app.card_opening, "A reveal is active before reset")
 	app._reset_test_session()
+	_check(not app.card_opening and not app.card_reveal.visible, "Reset cancels an active reveal")
 	_check(not app.active and app.current_page == "MODOS" and not app.card_result.visible, "Reset cancels match, hides reveal and returns to modes")
 	_check(app.progress.collection.is_empty() and app.progress.idle_points == 300 and app.ip_label.text == "300 IP", "Reset restores starter IP and clears collection")
 	_check(app.match_speed == 2.0, "Practice reset preserves the 2x default")
 	app.queue_free()
 	await process_frame
 	DirAccess.remove_absolute(ProjectSettings.globalize_path("res://tests/tmp_mobile.json"))
-	print("PASS mobile UI: drag, tap, 4 viewport sizes, upgrade grids, cards, combat bonuses, reset" if failures == 0 else "FAIL mobile UI: %d" % failures)
+	print("%s mobile UI: %d checks, %d failures" % ["PASS" if failures == 0 else "FAIL", checks, failures])
 	quit(0 if failures == 0 else 1)
 
 func _mouse_button(pos: Vector2, pressed: bool) -> void:
@@ -139,6 +177,7 @@ func _frames() -> void:
 	for i: int in range(5): await process_frame
 
 func _check(ok: bool, message: String) -> void:
+	checks += 1
 	if not ok:
 		failures += 1
 		push_error(message)

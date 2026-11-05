@@ -3,12 +3,14 @@ extends RefCounted
 const PACK_COST: int = 100
 const PITY_LIMIT: int = 10
 const MAX_EQUIPPED: int = 3
+const MAX_CARD_LEVEL: int = 5
+const EFFECT_GROWTH_PER_LEVEL: float = 0.25
 const RARITIES: Array[Dictionary] = [
-	{"name": "Normal", "weight": 60, "color": "a5b6c4", "refund": 10},
-	{"name": "Rara", "weight": 25, "color": "70c5ff", "refund": 20},
-	{"name": "Épica", "weight": 10, "color": "c298ff", "refund": 35},
-	{"name": "Lendária", "weight": 4, "color": "f1c779", "refund": 50},
-	{"name": "Mítica", "weight": 1, "color": "ff818d", "refund": 75},
+	{"name": "Normal", "weight": 60, "color": "a5b6c4"},
+	{"name": "Rara", "weight": 25, "color": "70c5ff"},
+	{"name": "Épica", "weight": 10, "color": "c298ff"},
+	{"name": "Lendária", "weight": 4, "color": "f1c779"},
+	{"name": "Mítica", "weight": 1, "color": "ff818d"},
 ]
 # Percentage-point bonuses. Equal effects add; distinct effects apply independently.
 const EFFECT_LABELS: Dictionary = {
@@ -49,7 +51,16 @@ const CARDS: Array[Dictionary] = [
 	{"id": "sovereign", "name": "Comando soberano", "rarity": 4, "sigil": "XV", "icon": "macro", "effects": {"objective_damage": 20, "structure_damage": 25}},
 ]
 
-static func equipped_effects(ids: Array[String]) -> Dictionary:
+static func level_effects(card: Dictionary, level: int) -> Dictionary:
+	if level <= 0:
+		return {}
+	var multiplier: float = 1.0 + (clampi(level, 1, MAX_CARD_LEVEL) - 1) * EFFECT_GROWTH_PER_LEVEL
+	var effects: Dictionary = {}
+	for effect: String in card.get("effects", {}):
+		effects[effect] = roundi(int(card.effects[effect]) * multiplier)
+	return sanitize_effects(effects)
+
+static func equipped_effects(ids: Array[String], levels: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	var seen: Array[String] = []
 	for id: String in ids:
@@ -59,8 +70,9 @@ static func equipped_effects(ids: Array[String]) -> Dictionary:
 		if card.is_empty():
 			continue
 		seen.append(id)
-		for effect: String in card.effects:
-			result[effect] = int(result.get(effect, 0)) + int(card.effects[effect])
+		var effects: Dictionary = level_effects(card, int(levels.get(id, 0)))
+		for effect: String in effects:
+			result[effect] = int(result.get(effect, 0)) + int(effects[effect])
 	return sanitize_effects(result)
 
 static func sanitize_effects(source: Dictionary) -> Dictionary:
@@ -86,15 +98,34 @@ static func find_card(id: String) -> Dictionary:
 			return card
 	return {}
 
-static func draw(rng: RandomNumberGenerator, guaranteed: bool) -> Dictionary:
-	# On the guaranteed draw, normalize the 10:4:1 epic/legendary/mythic weights.
-	var roll: int = rng.randi_range(1, 15 if guaranteed else 100)
-	var rarity: int = 2 if guaranteed else 0
-	while roll > int(RARITIES[rarity].weight):
-		roll -= int(RARITIES[rarity].weight)
-		rarity += 1
+static func available_cards(levels: Dictionary, minimum_rarity: int = 0) -> Array[Dictionary]:
 	var candidates: Array[Dictionary] = []
 	for card: Dictionary in CARDS:
-		if int(card.rarity) == rarity:
+		if int(card.rarity) >= minimum_rarity and int(levels.get(card.id, 0)) < MAX_CARD_LEVEL:
 			candidates.append(card)
-	return candidates[rng.randi_range(0, candidates.size() - 1)].duplicate(true)
+	return candidates
+
+static func draw(rng: RandomNumberGenerator, guaranteed: bool, levels: Dictionary = {}) -> Dictionary:
+	var candidates: Array[Dictionary] = available_cards(levels, 2 if guaranteed else 0)
+	# When every epic+ card is maxed, keep improving the remaining rarities.
+	if candidates.is_empty() and guaranteed:
+		candidates = available_cards(levels)
+	if candidates.is_empty():
+		return {}
+	# Remove maxed cards before drawing: no retries, wasted pulls or extra charges.
+	# Keep rarity weights until that entire rarity is maxed, then renormalize.
+	var pools: Dictionary = {}
+	var total_weight: int = 0
+	for card: Dictionary in candidates:
+		var rarity: int = int(card.rarity)
+		if not pools.has(rarity):
+			pools[rarity] = []
+			total_weight += int(RARITIES[rarity].weight)
+		pools[rarity].append(card)
+	var roll: int = rng.randi_range(1, total_weight)
+	for rarity: int in pools:
+		roll -= int(RARITIES[rarity].weight)
+		if roll <= 0:
+			var pool: Array = pools[rarity]
+			return pool[rng.randi_range(0, pool.size() - 1)].duplicate(true)
+	return {}

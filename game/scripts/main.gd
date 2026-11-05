@@ -6,6 +6,8 @@ const Arena = preload("res://scripts/arena_view.gd")
 const Numbers = preload("res://scripts/number_format.gd")
 const Cards = preload("res://scripts/card_catalog.gd")
 const CardArt = preload("res://scripts/card_art.gd")
+const CardStars = preload("res://scripts/card_stars.gd")
+const CardReveal = preload("res://scripts/card_reveal.gd")
 const INK: Color = Color("edf3ef")
 const MUTED: Color = Color("93a9b8")
 const MINT: Color = Color("75e4bd")
@@ -63,6 +65,7 @@ var mode_chosen: bool = false
 var ip_label: Label
 var card_wallet: Label
 var card_pity: Label
+var card_odds: Label
 var card_milestone: Label
 var card_summary: Label
 var card_open_button: Button
@@ -71,7 +74,11 @@ var card_result_label: Label
 var card_buttons: Dictionary = {}
 var card_counts: Dictionary = {}
 var card_panels: Dictionary = {}
-var reveal_tween: Tween
+var card_effect_labels: Dictionary = {}
+var card_next_labels: Dictionary = {}
+var card_stars: Dictionary = {}
+var card_reveal: Control
+var card_opening: bool = false
 
 func _ready() -> void:
 	if not test_save_path.is_empty():
@@ -184,6 +191,9 @@ func _build_ui() -> void:
 	footer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	page_column.add_child(footer)
 	_allow_scroll_gestures(margin)
+	card_reveal = CardReveal.new()
+	add_child(card_reveal)
+	card_reveal.finished.connect(_finish_card_purchase)
 	_show_page("MODOS")
 
 func _allow_scroll_gestures(node: Node) -> void:
@@ -375,7 +385,7 @@ func _build_training_page(page: VBoxContainer) -> void:
 
 func _build_cards_page(page: VBoxContainer) -> void:
 	page.add_child(_label("Cartas do Nexo", 24, INK))
-	page.add_child(_wrapped("Colecione relíquias e equipe até 3 cartas. Ganhe efeitos próprios de economia e combate, sem alterar os níveis das habilidades. Valem a partir da próxima partida, inclusive o bônus de XP.", 13, MUTED))
+	page.add_child(_wrapped("Colecione relíquias e equipe até 3 cartas. Repetidas sobem de nível e fortalecem seus efeitos de economia e combate. Os bônus e suas melhorias valem a partir da próxima partida, inclusive o XP.", 13, MUTED))
 	var shop: PanelContainer = _panel(Color("1b233b"))
 	page.add_child(shop)
 	var stack: VBoxContainer = _column(10)
@@ -390,8 +400,9 @@ func _build_cards_page(page: VBoxContainer) -> void:
 	stack.add_child(card_open_button)
 	card_pity = _wrapped("", 12, GOLD)
 	stack.add_child(card_pity)
-	stack.add_child(_wrapped("Chances por abertura: Normal 60% · Rara 25% · Épica 10% · Lendária 4% · Mítica 1%.", 12, MUTED))
-	stack.add_child(_wrapped("Após 9 cartas sem épica ou superior, a próxima garante: Épica ≈66,67% · Lendária ≈26,67% · Mítica ≈6,67%. Uma épica ou superior reinicia a contagem. Cada carta tem a mesma chance dentro da sua raridade.", 11, MUTED))
+	card_odds = _wrapped("", 12, MUTED)
+	stack.add_child(card_odds)
+	stack.add_child(_wrapped("Após 9 cartas sem épica ou superior, a próxima garante uma dessas raridades enquanto houver alguma abaixo do máximo. Cartas no máximo saem do sorteio; as restantes têm chances iguais dentro da sua raridade. Se uma raridade se esgotar, as chances das outras aumentam.", 11, MUTED))
 	card_result = _panel(Color("203044"))
 	page.add_child(card_result)
 	card_result_label = _wrapped("", 18, INK)
@@ -411,7 +422,7 @@ func _build_cards_page(page: VBoxContainer) -> void:
 	page.add_child(_label("Sua coleção", 22, INK))
 	card_summary = _wrapped("", 12, MINT)
 	page.add_child(card_summary)
-	page.add_child(_wrapped("Repetidas devolvem IP: Normal 10 · Rara 20 · Épica 35 · Lendária 50 · Mítica 75. Cópias não multiplicam o bônus.", 12, MUTED))
+	page.add_child(_wrapped("Cada repetida dá +1 nível, até o nível %d. Cada nível acrescenta 25%% do bônus inicial, chegando ao dobro no máximo (valores arredondados). Cartas no máximo são substituídas por outras no sorteio. Com todas no máximo, a compra é bloqueada sem gastar IP." % Cards.MAX_CARD_LEVEL, 12, MUTED))
 	var grid: GridContainer = _grid(page)
 	for definition: Dictionary in Cards.CARDS:
 		var id: String = str(definition.id)
@@ -435,38 +446,57 @@ func _build_cards_page(page: VBoxContainer) -> void:
 		var name_label: Label = _wrapped(str(definition.name), 17, INK)
 		name_label.custom_minimum_size.y = 44
 		content.add_child(name_label)
-		content.add_child(_wrapped(Cards.describe_effects(definition.effects), 12, accent))
+		var stars: Control = CardStars.new()
+		content.add_child(stars)
+		card_stars[id] = stars
+		var effects: Label = _wrapped("", 12, accent)
+		content.add_child(effects)
+		card_effect_labels[id] = effects
 		var owned: Label = _wrapped("", 11, MUTED)
-		owned.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		content.add_child(owned)
 		card_counts[id] = owned
+		var next_level: Label = _wrapped("", 11, MUTED)
+		next_level.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		content.add_child(next_level)
+		card_next_labels[id] = next_level
 		var equip: Button = _button("", false)
 		equip.pressed.connect(_toggle_card.bind(id))
 		content.add_child(equip)
 		card_buttons[id] = equip
 
 func _open_card() -> void:
+	if card_opening:
+		return
 	var result: Dictionary = progress.open_card()
 	if not result.is_empty():
+		card_opening = true
 		var card: Dictionary = result.card
 		var rarity: Dictionary = Cards.RARITIES[int(card.rarity)]
-		card_result_label.text = "%s!\n%s · %s\n%s\n%s" % [
-			"CARTA REPETIDA" if bool(result["duplicate"]) else "NOVA CARTA",
-			card.name, rarity.name, Cards.describe_effects(card.effects),
-			"+%d IP devolvidos" % int(result.refund) if bool(result["duplicate"]) else "Já está na sua coleção. Equipe abaixo!",
+		card_result_label.text = "%s!\n%s · %s\nNível %d/%d\n%s\n%s" % [
+			"SUBIU DE NÍVEL" if bool(result["duplicate"]) else "NOVA CARTA",
+			card.name, rarity.name, int(result.level), Cards.MAX_CARD_LEVEL,
+			Cards.describe_effects(result.effects),
+			"Nível máximo! Próximas aberturas trarão outras cartas." if int(result.level) == Cards.MAX_CARD_LEVEL else "Já está na sua coleção. Bônus válidos na próxima partida.",
 		]
 		card_result_label.add_theme_color_override("font_color", Color(str(rarity.color)))
-		card_result.show()
-		if reveal_tween != null:
-			reveal_tween.kill()
-		card_result.modulate.a = 0.0
-		reveal_tween = create_tween()
-		reveal_tween.tween_property(card_result, "modulate:a", 1.0, 0.4)
-		# Reveal happens after the saved purchase; animation never controls the reward.
-		scroll.ensure_control_visible.call_deferred(card_result)
+		card_result.hide()
+		# The saved purchase owns the reward; skipping the animation never buys again.
+		card_reveal.show_purchase(result)
 	_refresh_progress()
 
+func _finish_card_purchase() -> void:
+	card_opening = false
+	card_result.show()
+	_refresh_progress()
+	scroll.ensure_control_visible.call_deferred(card_result)
+	if not card_open_button.disabled:
+		card_open_button.grab_focus()
+	else:
+		nav_buttons.CARTAS.grab_focus()
+
 func _toggle_card(id: String) -> void:
+	if card_opening:
+		return
 	progress.toggle_card(id)
 	_refresh_progress()
 
@@ -474,12 +504,33 @@ func _refresh_cards() -> void:
 	ip_label.text = "%s IP" % Numbers.compact(progress.idle_points)
 	ip_label.tooltip_text = "%d Idle Points" % progress.idle_points
 	card_wallet.text = "%s IP" % Numbers.compact(progress.idle_points)
-	card_open_button.disabled = progress.idle_points < Cards.PACK_COST
-	card_pity.text = "Épica ou superior garantida em até %d abertura(s)." % (Cards.PITY_LIMIT - progress.pulls_without_epic)
+	var available: Array[Dictionary] = Cards.available_cards(progress.collection)
+	var epic_available: bool = not Cards.available_cards(progress.collection, 2).is_empty()
+	var complete: bool = available.is_empty()
+	card_open_button.disabled = card_opening or complete or progress.idle_points < Cards.PACK_COST
+	card_open_button.text = "ABRINDO…" if card_opening else ("COLEÇÃO NO NÍVEL MÁXIMO" if complete else "ABRIR CARTA  ·  100 IP")
+	if complete:
+		card_pity.text = "Todas as cartas no nível máximo. Nenhum IP será gasto."
+	elif epic_available:
+		card_pity.text = "Épica ou superior garantida em até %d abertura(s)." % (Cards.PITY_LIMIT - progress.pulls_without_epic)
+	else:
+		card_pity.text = "Épicas, lendárias e míticas no máximo! As aberturas evoluem as cartas restantes."
+	var guaranteed: bool = epic_available and progress.pulls_without_epic >= Cards.PITY_LIMIT - 1
+	var weights: Dictionary = {}
+	var total_weight: int = 0
+	for card: Dictionary in available:
+		var rarity: int = int(card.rarity)
+		if (not guaranteed or rarity >= 2) and not weights.has(rarity):
+			weights[rarity] = int(Cards.RARITIES[rarity].weight)
+			total_weight += int(weights[rarity])
+	var odds: PackedStringArray = PackedStringArray()
+	for rarity: int in weights:
+		odds.append("%s %.2f%%" % [Cards.RARITIES[rarity].name, float(weights[rarity]) * 100.0 / total_weight])
+	card_odds.text = "Chances na próxima abertura: " + " · ".join(odds) if not complete else "Coleção completa!"
 	card_milestone.text = "+50 IP a cada 10 vitórias · Próximo marco: %d/10" % (progress.wins % Progression.WIN_MILESTONE)
 	var names: Array[String] = []
 	for id: String in progress.equipped_cards:
-		names.append(str(Cards.find_card(id).name))
+		names.append("%s (Nv. %d)" % [Cards.find_card(id).name, int(progress.collection[id])])
 	card_summary.text = "%d/%d descobertas · %d/3 equipadas\n%s" % [
 		progress.collection.size(), Cards.CARDS.size(), progress.equipped_cards.size(),
 		"Nenhuma carta equipada. Escolha até três abaixo." if names.is_empty() else "Equipadas: " + ", ".join(names),
@@ -491,9 +542,13 @@ func _refresh_cards() -> void:
 		var id: String = str(card.id)
 		var owned: bool = progress.collection.has(id)
 		var equipped: bool = progress.equipped_cards.has(id)
-		card_counts[id].text = "%d cópia(s) obtida(s)" % int(progress.collection[id]) if owned else "Ainda não descoberta"
+		var level: int = int(progress.collection.get(id, 0))
+		card_counts[id].text = "NÍVEL MÁXIMO · %d/%d" % [level, Cards.MAX_CARD_LEVEL] if level >= Cards.MAX_CARD_LEVEL else ("Nível %d/%d · Repetida: +1 nível" % [level, Cards.MAX_CARD_LEVEL] if owned else "Ainda não descoberta · Bônus do nível 1")
+		card_effect_labels[id].text = Cards.describe_effects(Cards.level_effects(card, maxi(1, level)))
+		card_stars[id].level = level
+		card_next_labels[id].text = "" if not owned else ("Fora do sorteio: você receberá outra carta." if level >= Cards.MAX_CARD_LEVEL else "Próximo nível:\n" + Cards.describe_effects(Cards.level_effects(card, level + 1)))
 		card_buttons[id].text = "REMOVER" if equipped else ("EQUIPAR" if owned else "NÃO OBTIDA")
-		card_buttons[id].disabled = not owned or (not equipped and progress.equipped_cards.size() >= Cards.MAX_EQUIPPED)
+		card_buttons[id].disabled = card_opening or not owned or (not equipped and progress.equipped_cards.size() >= Cards.MAX_EQUIPPED)
 		card_panels[id].modulate = Color.WHITE if owned else Color("82909e")
 		card_buttons[id].add_theme_color_override("font_color", MINT if equipped else INK)
 
@@ -667,8 +722,8 @@ func _reset_test_session() -> void:
 	if not progress.practice_mode:
 		return
 	progress.load_save()
-	if reveal_tween != null:
-		reveal_tween.kill()
+	card_reveal.cancel()
+	card_opening = false
 	card_result.hide()
 	card_result_label.text = ""
 	match_speed = 2.0

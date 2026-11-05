@@ -2,7 +2,7 @@ extends RefCounted
 
 ## Permanent progression for the first playable Normal Game prototype.
 ## Balance values are deliberately provisional, not final design decisions.
-const SAVE_VERSION: int = 5
+const SAVE_VERSION: int = 6
 const Cards = preload("res://scripts/card_catalog.gd")
 const DIVISION_IP: int = 25
 const TIER_IP: int = 75
@@ -54,7 +54,7 @@ var lifetime_xp: int = 0
 var matches: int = 0
 var wins: int = 0
 var idle_points: int = 0
-var collection: Dictionary = {}
+var collection: Dictionary = {} # Card ID -> level (1–5); absent means undiscovered.
 var equipped_cards: Array[String] = []
 var pulls_without_epic: int = 0
 var highest_ladders: Dictionary = {"normal": 0, "ranked": 0}
@@ -251,22 +251,31 @@ func _tier_index(points: int, mode: String) -> int:
 func open_card() -> Dictionary:
 	if _write_blocked:
 		return {}
+	if Cards.available_cards(collection).is_empty():
+		last_error = "Todas as cartas estão no nível máximo. Nenhum IP foi gasto."
+		return {}
 	if idle_points < Cards.PACK_COST:
 		last_error = "IP insuficiente. Conquiste novas divisões ou complete 10 vitórias."
 		return {}
 	var previous: Dictionary = _snapshot()
-	var card: Dictionary = Cards.draw(_card_rng, pulls_without_epic >= Cards.PITY_LIMIT - 1)
+	var rng_state: int = _card_rng.state
+	var card: Dictionary = Cards.draw(_card_rng, pulls_without_epic >= Cards.PITY_LIMIT - 1, collection)
+	if card.is_empty():
+		last_error = "Não há cartas disponíveis. Nenhum IP foi gasto."
+		return {}
 	var id: String = str(card.id)
-	var duplicate: bool = collection.has(id)
-	var refund: int = int(Cards.RARITIES[int(card.rarity)].refund) if duplicate else 0
-	idle_points -= Cards.PACK_COST - refund
-	collection[id] = mini(MAX_COUNTER, int(collection.get(id, 0)) + 1)
-	pulls_without_epic = 0 if int(card.rarity) >= 2 else pulls_without_epic + 1
+	var previous_level: int = int(collection.get(id, 0))
+	var level: int = previous_level + 1
+	idle_points -= Cards.PACK_COST
+	collection[id] = level
+	pulls_without_epic = 0 if int(card.rarity) >= 2 else mini(Cards.PITY_LIMIT - 1, pulls_without_epic + 1)
 	if not save_game():
 		_restore(previous)
+		_card_rng.state = rng_state
 		return {}
 	last_error = ""
-	return {"card": card, "duplicate": duplicate, "refund": refund}
+	return {"card": card, "duplicate": previous_level > 0, "previous_level": previous_level,
+		"level": level, "effects": Cards.level_effects(card, level)}
 
 
 func toggle_card(id: String) -> bool:
@@ -292,7 +301,7 @@ func combat_upgrades() -> Dictionary:
 
 
 func card_effects() -> Dictionary:
-	return Cards.equipped_effects(equipped_cards)
+	return Cards.equipped_effects(equipped_cards, collection)
 
 
 func match_reward(won: bool, mode: String = "", effects: Dictionary = {}) -> int:
@@ -505,7 +514,8 @@ func _restore(data: Dictionary) -> void:
 	collection = {}
 	if has_cards:
 		for id: String in data["collection"]:
-			collection[id] = int(data["collection"][id])
+			# v5 quantities become levels, preserving every discovered/equipped card.
+			collection[id] = mini(Cards.MAX_CARD_LEVEL, int(data["collection"][id]))
 	equipped_cards.clear()
 	for id: String in (data["equipped_cards"] if has_cards else []):
 		equipped_cards.append(id)
@@ -607,8 +617,9 @@ func _valid_cards(data: Dictionary) -> bool:
 	if not data.get("collection") is Dictionary or not data.get("equipped_cards") is Array:
 		return false
 	var owned: Dictionary = data["collection"]
+	var max_card_value: int = Cards.MAX_CARD_LEVEL if int(data["schema_version"]) >= 6 else MAX_COUNTER
 	for id: Variant in owned:
-		if not id is String or Cards.find_card(id).is_empty() or not _whole_number(owned[id], 1, MAX_COUNTER):
+		if not id is String or Cards.find_card(id).is_empty() or not _whole_number(owned[id], 1, max_card_value):
 			return false
 	var equipped: Array = data["equipped_cards"]
 	if equipped.size() > Cards.MAX_EQUIPPED:

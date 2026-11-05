@@ -1,5 +1,7 @@
 # Cartas com efeitos próprios — v0.11
 
+Documento histórico da v0.11. Os efeitos da tabela agora representam o nível 1; evolução, repetidas e salvamento foram atualizados nas [regras de níveis das cartas](CARTAS-NIVEIS.md). A devolução de IP por repetidas descrita abaixo foi substituída por subida de nível.
+
 As cartas não concedem níveis nem pontos de habilidades. Cada uma modifica uma regra de economia ou combate por uma porcentagem. Os valores abaixo são iniciais para balanceamento.
 
 | Carta | Raridade | Efeito ao equipar |

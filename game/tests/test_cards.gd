@@ -11,6 +11,7 @@ func _initialize() -> void:
 	_cleanup()
 	_rewards()
 	_draws_and_equipment()
+	_levels_and_maxed_pool()
 	_percentage_effects()
 	_persistence_and_rollback()
 	_practice_reset()
@@ -70,13 +71,15 @@ func _draws_and_equipment() -> void:
 	result = p.open_card()
 	var rarity: int = int(result.card.rarity)
 	_check(rarity >= 2 and p.pulls_without_epic == 0, "Tenth draw guarantees epic or better and resets pity")
-	_check(bool(result["duplicate"]) and p.idle_points == int(Cards.RARITIES[rarity].refund), "Duplicates refund the correct rarity amount")
-	_check(int(p.collection[result.card.id]) == 2, "Duplicate count is recorded")
+	_check(bool(result["duplicate"]) and p.idle_points == 0, "A duplicate costs 100 IP without a refund")
+	_check(int(p.collection[result.card.id]) == 2 and result.previous_level == 1 and result.level == 2, "A duplicate upgrades the card exactly one level")
+	for id: String in ["blade", "duelist", "storm"]:
+		p.collection[id] = 1
 	_check(p.toggle_card("blade") and p.toggle_card("duelist") and p.toggle_card("storm"), "Three distinct cards can be equipped")
 	_check(not p.toggle_card("coin") and not p.toggle_card("missing"), "Fourth and unknown cards are rejected")
 	_check(p.combat_upgrades() == p.upgrades and p.card_effects() == {"champion_damage": 6, "attack_speed": 12, "crit_chance": 20}, "Cards provide distinct effects without skill levels")
-	p.collection.blade = 100
-	_check(p.card_effects().champion_damage == 6, "Duplicate copies do not multiply effects")
+	p.collection.blade = Cards.MAX_CARD_LEVEL
+	_check(p.card_effects().champion_damage == 12, "Max-level cards double their base effect without changing skills")
 	_check(p.toggle_card("blade") and p.toggle_card("coin"), "Removing a card frees a slot")
 	_check(not p.card_effects().has("champion_damage") and p.card_effects().gold_gain == 8 and p.combat_upgrades() == p.upgrades, "Equipment changes effects, never skills")
 	# Deterministic samples exercise both ordinary draws and the guaranteed pool.
@@ -89,6 +92,42 @@ func _draws_and_equipment() -> void:
 		_check(not Cards.find_card(str(card.id)).is_empty(), "Draw belongs to catalog")
 		_check(int(Cards.draw(rng, true).rarity) >= 2, "Guaranteed pool excludes normal and rare")
 	_check(seen.size() == 5, "All five rarities are reachable")
+
+func _levels_and_maxed_pool() -> void:
+	var p = _fresh()
+	for card: Dictionary in Cards.CARDS:
+		p.collection[card.id] = Cards.MAX_CARD_LEVEL
+	p.collection.erase("harvest")
+	p.idle_points = 1000
+	p.pulls_without_epic = 9
+	var frozen: Dictionary = {}
+	for expected_level: int in range(1, Cards.MAX_CARD_LEVEL + 1):
+		var before: int = p.idle_points
+		var result: Dictionary = p.open_card()
+		_check(not result.is_empty() and result.card.id == "harvest", "Only the remaining non-maxed card can be drawn, even when epic+ is exhausted")
+		_check(p.idle_points == before - 100 and p.collection.harvest == expected_level, "Each purchase charges once and grants one level")
+		_check(result.effects.match_xp == [12, 15, 18, 21, 24][expected_level - 1], "XP bonus grows with the awarded level")
+		_check(p.pulls_without_epic == 9, "Exhausted epic pool never overflows the pity counter")
+		if expected_level == 1:
+			p.toggle_card("harvest")
+			frozen = p.card_effects()
+	_check(p.card_effects().match_xp == 24 and frozen.match_xp == 12, "Leveling equipment does not mutate an existing match snapshot")
+	_check(p.match_reward(true, "normal", frozen) == 134, "Ongoing match XP retains the level from its start")
+	var snapshot: Dictionary = p._snapshot()
+	var rng_state: int = p._card_rng.state
+	_check(p.open_card().is_empty() and p._snapshot() == snapshot and p._card_rng.state == rng_state, "A fully maxed collection spends nothing and consumes no RNG")
+	_check(Cards.draw(p._card_rng, true, p.collection).is_empty(), "A complete catalog has no fallback to a maxed card")
+	# Pity must still choose an eligible epic+ even when lower rarities are available.
+	p.collection.blade = 1
+	p.collection.oracle = 4
+	p.idle_points = 100
+	var guaranteed: Dictionary = p.open_card()
+	_check(guaranteed.card.id == "oracle" and p.collection.oracle == 5 and p.pulls_without_epic == 0, "Guarantee respects maxed cards and upgrades the last eligible epic")
+	var restored = Progression.new()
+	restored.save_path = SAVE_PATH
+	restored.time_override = p.time_override
+	restored.load_save()
+	_check(restored.collection == p.collection and restored.card_effects() == p.card_effects(), "Upgraded effects survive a save and reload")
 
 func _sim(effects: Dictionary = {}):
 	var sim = Simulation.new()
@@ -208,9 +247,20 @@ func _persistence_and_rollback() -> void:
 	_check(restored._snapshot() == p._snapshot(), "Wallet, collection, equipment, guarantee and records survive reload")
 	p.save_path = "res://tests/missing_cards_directory/save.json"
 	var before: Dictionary = p._snapshot()
+	var rng_state: int = p._card_rng.state
 	_check(p.open_card().is_empty() and p._snapshot() == before, "Failed save restores a draw atomically")
+	_check(p._card_rng.state == rng_state, "Failed save restores the next draw as well")
 	_check(not p.toggle_card("oracle") and p._snapshot() == before, "Failed save restores equipment")
 	_check(p.record_match(true) == 0 and p._snapshot() == before and p.last_ip_reward == 0, "Failed save restores match rewards")
+	var legacy_cards: Dictionary = restored._snapshot()
+	legacy_cards.schema_version = 5
+	legacy_cards.collection = {"oracle": 2, "blade": 50}
+	_write(legacy_cards)
+	restored.load_save()
+	_check(restored.collection == {"oracle": 2, "blade": 5} and restored.equipped_cards == ["oracle"] and restored.idle_points == 250, "v5 copies become capped levels while equipment and IP survive")
+	var invalid_level: Dictionary = restored._snapshot()
+	invalid_level.collection.oracle = Cards.MAX_CARD_LEVEL + 1
+	_check(not restored._valid_snapshot(invalid_level), "v6 rejects over-max card levels")
 	var legacy: Dictionary = restored._snapshot()
 	legacy.schema_version = 4
 	for key: String in ["idle_points", "collection", "equipped_cards", "pulls_without_epic", "highest_ladders"]:
