@@ -14,6 +14,7 @@ A nova aba **Cartas** traz 15 cartas de raridades Normal, Rara, Épica, Lendári
 
 ## Alterações recentes
 
+- Configuração do projeto: a skill `game-dev` passou a ser obrigatória para toda criação, implementação, correção, refatoração ou modificação do jogo.
 - v0.11: cartas agora concedem efeitos percentuais próprios, sem aumentar níveis de habilidades: XP por partida, ouro, dano contra jogadores/objetivos/estruturas, críticos, velocidade, vida, resistência e renascimento.
 - Bônus de combate e XP usam as cartas equipadas no início da partida. Trocas valem para a próxima; a coleção existente foi preservada.
 - v0.10: adicionadas 15 cartas com cinco raridades, Idle Points, até três cartas equipadas, devolução por repetidas e garantia de épica ou superior.

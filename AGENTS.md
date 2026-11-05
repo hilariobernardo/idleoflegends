@@ -3,6 +3,7 @@
 Godot 4.7.2 project in game/project.godot. Assets and navigation are in game/assets. Default play mode is a fresh session with unlimited XP and no save writes.
 
 Keep replies short. Do not run tests unless the user explicitly requests them.
+For any request to create, implement, fix, refactor or modify game functionality, use the installed `game-dev` skill and follow its workflow before changing the project.
 For every project change, add a concise summary of what was added or fixed to the history below and to the README's "Alterações recentes" section, in the same commit. Keep earlier entries so future agents can follow the project's history.
 Do not commit local SDKs, engines, caches, signing keys, credentials or generated builds.
 When the user requests an APK download, deliver a verified GitHub URL, never only a local workspace link. Prefer GitHub Releases. For this project's established direct-download workflow, the explicitly requested versioned APK and its checksum in builds/ are the exception to the generated-build restriction. Do not include any other build tooling or signing material.
@@ -11,6 +12,7 @@ Navigation generation: scripts/build_navigation.py (Python, Pillow, NumPy), run 
 
 ## Histórico de alterações
 
+- Configuração: a skill `game-dev` passou a ser obrigatória para toda criação, implementação, correção, refatoração ou modificação do jogo.
 - v0.11: cartas passaram a ter efeitos percentuais próprios (XP por partida, ouro, dano específico, crítico, velocidade, resistência, vida e renascimento), sem conceder níveis de habilidades. Efeitos e recompensa de XP são fixados no início da partida; coleção existente preservada.
 - v0.10: cartas gacha com cinco raridades, Idle Points, três equipamentos, devolução por repetidas e garantia de épica; habilidades e estudos em duas colunas, também no painel inferior da partida.
 - v0.10: integradas as mudanças do branch work (Dragon/Baron, posições dos jogadores e velocidade 2×); entrega do APK por link direto do GitHub, com histórico e README sincronizados.
