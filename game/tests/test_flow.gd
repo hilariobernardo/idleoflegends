@@ -41,7 +41,7 @@ func _run() -> void:
 		app._process(0.1)
 	_check(app.progress.matches == 1, "Idle frames must not award a second result.")
 	await _capture("03-resultado")
-	app.nav_buttons.MELHORIAS.pressed.emit()
+	app.nav_buttons["EVOLUÇÃO"].pressed.emit()
 	await _capture("04-melhorias")
 	var before: int = app.progress.xp
 	app.skill_buttons.farm.pressed.emit()
@@ -63,7 +63,7 @@ func _run() -> void:
 	app.progress.xp = 20000
 	app.progress.lifetime_xp = 20000
 	app._refresh_progress()
-	app.nav_buttons.ESTUDOS.pressed.emit()
+	app.nav_buttons["EVOLUÇÃO"].pressed.emit()
 	var tutorial_key: String = Progression.TRAINING_ORDER[1]
 	app.training_buttons[tutorial_key].pressed.emit()
 	_check(app.progress.training_rate() == 3, "Buying tutorials produces a combined 3 XP per second.")
@@ -74,7 +74,7 @@ func _run() -> void:
 	_check(app.progress.xp == 18980, "Second tutorial level costs 720 XP.")
 	app.progress.time_override += 1
 	app.speed_button.pressed.emit()
-	_check(app.speed_button.disabled and app.speed_button.text == "1×", "Only baseline movement speed is available.")
+	_check(not app.speed_button.disabled and app.speed_button.text == "2×" and app.match_speed == 2.0, "Match speed can switch from 1x to 2x.")
 	app._process(1.0)
 	_check(app.progress.xp == 18986, "The wallet credits one real second, unaffected by match speed.")
 	_check(app.income_label.text.contains("6 XP/s") and app.xp_label.text == "18,9K XP", "Wallet displays compact balance and per-second production.")
@@ -82,6 +82,7 @@ func _run() -> void:
 	app.nav_buttons.MODOS.pressed.emit()
 	_check(app.mode_buttons.ranked.disabled, "Money alone cannot unlock Ranked before Barro IV.")
 	app.progress.ladders.normal = 400
+	app.progress.highest_ladders.normal = 400
 	app._refresh_progress()
 	_check(not app.mode_buttons.ranked.disabled, "Barro IV and enough XP enable the Ranked purchase.")
 	app.mode_buttons.ranked.pressed.emit()

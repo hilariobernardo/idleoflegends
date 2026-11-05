@@ -13,6 +13,7 @@ Navigation generation: scripts/build_navigation.py (Python, Pillow, NumPy), run 
 
 ## Histórico de alterações
 
+- Inicialização: corrigido o erro de `arena.png/.ctex` em cópias sem cache `.godot`. O mapa lê o PNG original no código-fonte e usa a textura importada nas exportações. Adicionado teste de abertura/mapa/partida; atualizados testes antigos de abas, velocidade, save e selva. Dez scripts de teste aprovados com Godot 4.6.3, além da abertura de um pacote PCK; nenhum novo APK.
 - Windows/Ponytail: removido o download/instalador automático do Godot; o atalho reutiliza instalações existentes e mantém a importação dos recursos. Instalação única no Windows documentada via WinGet. Adicionada a skill Ponytail oficial ao projeto, com licença MIT; sem mudanças na lógica do jogo nem novo APK.
 - Windows: `Jogar.cmd` passou a detectar Godot no PATH ou portatil e, na ausencia, baixar Godot 4.6.3 oficial (x64/x86/ARM64) com SHA256 fixado. Prepara os recursos antes de abrir, sem administrador nem alterar PATH. Motor/logs ficam em `.tools/`, ignorado pelo Git. Nao foi executado em Windows nesta sessao Linux.
 - Cartas: recuperada animação de abertura com virada/brilho por raridade e opção de pular; repetidas evoluem do nível 1 ao 5, com cinco estrelinhas abaixo da carta na coleção e na revelação. Cada nível acrescenta 25% do bônus base. Cartas no máximo saem do sorteio; coleção completa bloqueia compra sem gasto. Save v6 converte cópias antigas em níveis. Cobertura nos testes de cartas e interface; APK v0.11 permanece anterior às mudanças.

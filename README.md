@@ -20,6 +20,7 @@ Cada carta começa no **nível 1** e cada repetida aumenta **1 nível, até o 5*
 
 ## Alterações recentes
 
+- Inicialização: corrigido o erro de `arena.png/.ctex` em cópias sem cache `.godot`. O mapa lê o PNG original no código-fonte e usa a textura importada nas exportações. Adicionado teste de abertura/mapa/partida; atualizados testes antigos de abas, velocidade, save e selva. Dez scripts de teste aprovados com Godot 4.6.3, além da abertura de um pacote PCK; nenhum novo APK.
 - Windows/Ponytail: removido o download/instalador automático do Godot; o atalho reutiliza instalações existentes e mantém a importação dos recursos. Instalação única no Windows documentada via WinGet. Adicionada a skill Ponytail oficial ao projeto, com licença MIT; sem mudanças na lógica do jogo nem novo APK.
 - Corrigido `Jogar.cmd`: detecta Godot portatil/fora do PATH ou baixa uma copia oficial verificada por SHA256, sem administrador. Importa recursos antes de abrir para evitar erro de textura do mapa em clones novos. Versoes Windows x64, x86 e ARM64 contempladas; nao altera o progresso do jogo.
 - Recuperadas as mudanças de animação e níveis; adicionadas cinco estrelinhas abaixo das cartas na coleção e na revelação. Testes de cartas e interface cobrem evolução, exclusão de cartas no máximo, virada completa, pular, bloqueio de compras e reinício durante a animação.
@@ -120,7 +121,13 @@ Clone ou baixe este repositório, extraia a pasta completa e abra `Jogar.cmd`. S
 
 O ambiente Codex pode editar os arquivos clonados. A interface grafica do jogo exige um computador com Godot e suporte grafico; conectar o repositorio nao instala automaticamente o editor. Ferramentas locais Android, APK antigo e capturas nao foram incluidos no repositorio. As referencias historicas a esses arquivos descrevem o computador original.
 
-Nesta alteração foi feita revisão estática do atalho e conferência do diff. Testes não foram executados, conforme a orientação do projeto. A execução no Windows ainda precisa ser conferida no computador do jogador, pois esta sessão executa Linux.
+O atalho foi revisado estaticamente; sua execução no Windows ainda precisa ser conferida no computador do jogador, pois esta sessão executa Linux. A correção posterior do mapa foi testada no Godot 4.6.3, a pedido do usuário: os dez scripts `game/tests/test_*.gd` passaram em uma cópia sem cache `.godot`. Também passou o teste de inicialização usando um pacote PCK exportado, que contém apenas a textura importada, sem o PNG original. Isso não substitui a validação em um aparelho Android ou no Windows; nenhum novo APK foi gerado.
+
+Para verificar a abertura, a imagem do mapa e o início de uma partida sem precisar importar recursos antes:
+
+```sh
+godot --headless --path game --script res://tests/test_startup.gd
+```
 
 ## Ponytail para desenvolvimento
 
