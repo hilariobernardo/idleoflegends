@@ -1,8 +1,9 @@
 # Project instructions
 
-Godot 4 project in game/project.godot; validated with 4.6.3, also used by the portable Windows launcher. Assets and navigation are in game/assets. Default play mode is a fresh session with unlimited XP and no save writes.
+Godot 4 project in game/project.godot; validated with 4.6.3. The Windows launcher reuses an installed engine and must not download or install Godot automatically. Assets and navigation are in game/assets. Default play mode is a fresh session with unlimited XP and no save writes.
 
 Keep replies short. Do not run tests unless the user explicitly requests them.
+Use the project-local `ponytail` skill at `.agents/skills/ponytail/SKILL.md` for coding tasks: read the affected flow, reuse existing code and platform features, and make the smallest complete change. These project instructions, including the test policy, take precedence over the skill's defaults.
 For any request to create, implement, fix, refactor or modify game functionality, use the installed `game-dev` skill and follow its workflow before changing the project.
 For every project change, add a concise summary of what was added or fixed to the history below and to the README's "Alterações recentes" section, in the same commit. Keep earlier entries so future agents can follow the project's history.
 Do not commit local SDKs, engines, caches, signing keys, credentials or generated builds.
@@ -12,6 +13,8 @@ Navigation generation: scripts/build_navigation.py (Python, Pillow, NumPy), run 
 
 ## Histórico de alterações
 
+- Inicialização: corrigido o erro de `arena.png/.ctex` em cópias sem cache `.godot`. O mapa lê o PNG original no código-fonte e usa a textura importada nas exportações. Adicionado teste de abertura/mapa/partida; atualizados testes antigos de abas, velocidade, save e selva. Dez scripts de teste aprovados com Godot 4.6.3, além da abertura de um pacote PCK; nenhum novo APK.
+- Windows/Ponytail: removido o download/instalador automático do Godot; o atalho reutiliza instalações existentes e mantém a importação dos recursos. Instalação única no Windows documentada via WinGet. Adicionada a skill Ponytail oficial ao projeto, com licença MIT; sem mudanças na lógica do jogo nem novo APK.
 - Windows: `Jogar.cmd` passou a detectar Godot no PATH ou portatil e, na ausencia, baixar Godot 4.6.3 oficial (x64/x86/ARM64) com SHA256 fixado. Prepara os recursos antes de abrir, sem administrador nem alterar PATH. Motor/logs ficam em `.tools/`, ignorado pelo Git. Nao foi executado em Windows nesta sessao Linux.
 - Cartas: recuperada animação de abertura com virada/brilho por raridade e opção de pular; repetidas evoluem do nível 1 ao 5, com cinco estrelinhas abaixo da carta na coleção e na revelação. Cada nível acrescenta 25% do bônus base. Cartas no máximo saem do sorteio; coleção completa bloqueia compra sem gasto. Save v6 converte cópias antigas em níveis. Cobertura nos testes de cartas e interface; APK v0.11 permanece anterior às mudanças.
 - Configuração: a skill `game-dev` passou a ser obrigatória para toda criação, implementação, correção, refatoração ou modificação do jogo.

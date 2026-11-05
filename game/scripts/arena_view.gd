@@ -1,7 +1,18 @@
 extends Control
 ## Approved map texture and simulation share normalized image coordinates.
-const MAP_TEXTURE = preload("res://assets/arena.png")
 const Map = preload("res://scripts/map_layout.gd")
+static var map_texture: Texture2D = _load_map_texture()
+
+static func _load_map_texture() -> Texture2D:
+	# Source checkouts can start before importing; exported games use Godot's texture.
+	if FileAccess.file_exists("res://assets/arena.png"):
+		var image: Image = Image.new()
+		var error: Error = image.load_png_from_buffer(FileAccess.get_file_as_bytes("res://assets/arena.png"))
+		if error != OK:
+			push_error("Failed to decode arena.png: %s" % error_string(error))
+			return null
+		return ImageTexture.create_from_image(image)
+	return load("res://assets/arena.png")
 
 var simulation: RefCounted
 var running: bool = false
@@ -31,7 +42,8 @@ func _draw() -> void:
 		return
 	var side: float = minf(size.x - 18, size.y - 12)
 	var bounds: Rect2 = Rect2(_point(Vector2.ZERO), Vector2.ONE * side)
-	draw_texture_rect(MAP_TEXTURE, bounds, false)
+	if map_texture != null:
+		draw_texture_rect(map_texture, bounds, false)
 	for key: String in simulation.objectives:
 		var objective: Dictionary = simulation.objectives[key]
 		if bool(objective.alive):

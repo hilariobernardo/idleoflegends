@@ -118,10 +118,11 @@ func _test_purchases_and_ranked() -> void:
 	progress.lifetime_xp = 10_000
 	_check(not progress.unlock_ranked(), "XP alone cannot bypass the rank requirement.")
 	progress.ladders.normal = 400
+	progress.highest_ladders.normal = 400
 	progress.xp = 9999
-	_check(not progress.can_unlock_ranked(), "Bronze IV still requires sufficient spendable XP.")
+	_check(not progress.can_unlock_ranked(), "Barro IV still requires sufficient spendable XP.")
 	progress.xp = 10_000
-	_check(progress.unlock_ranked() and progress.xp == 0, "Bronze IV and 10,000 XP unlock Ranked.")
+	_check(progress.unlock_ranked() and progress.xp == 0, "Barro IV and 10,000 XP unlock Ranked.")
 	_check(not progress.unlock_ranked() and progress.xp == 0, "Unlock cannot charge twice.")
 	_check(progress.select_mode("ranked"), "Unlocked Ranked is selectable.")
 	_check(progress.rank_name() == "Ferro IV" and progress.opponent_level() == 2.0, "Ranked has its own ladder and stronger starting enemies.")
@@ -143,7 +144,7 @@ func _test_migration_and_validation() -> void:
 	_check(progress.xp == 200 and progress.upgrades.farm == 1 and progress.matches == 4, "v1 migration preserves all player progress.")
 	_check(progress.rank_name() == "Sal IV" and progress.last_training_reward == 0 and progress.training_last_at > 0, "Migration starts the new systems without historical income.")
 	var data: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(FIXTURE))
-	_check(data.schema_version == 4, "Migrated save uses schema v4.")
+	_check(data.schema_version == Progression.SAVE_VERSION, "Migrated save uses the current schema.")
 	for field: String in ["training_remainder", "training_last_at", "ranked_unlocked", "ladders", "training_levels", "selected_mode"]:
 		var invalid: Dictionary = data.duplicate(true)
 		invalid[field] = "invalid"

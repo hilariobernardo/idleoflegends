@@ -5,6 +5,8 @@ var failures: int = 0
 func _initialize() -> void:
 	var sim = Simulation.new()
 	sim.start({}, 7182)
+	# Isolate the camp/gank route from Dragon and Baron diversions.
+	sim._spawn_index = sim.OBJECTIVE_SCHEDULE.size()
 	var previous: Array[int] = [0, 0]
 	var seen: Array[int] = [0, 0]
 	var arrived: Array[bool] = [false, false]
